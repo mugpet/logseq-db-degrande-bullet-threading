@@ -1,0 +1,25 @@
+{
+  "name": "degrande-bullet-threading",
+  "version": "0.1.1",
+  "description": "Degrande Bullet Threading is a Logseq DB-first bullet threading scaffold with expressive motion, color controls, and a publish-ready setup.",
+  "author": "mugpet",
+  "license": "MIT",
+  "title": "Degrande Bullet Threading",
+  "repo": "mugpet/logseq-db-degrande-bullet-threading",
+  "effect": true,
+  "main": "index.html",
+  "scripts": {
+    "check": "node -e \"JSON.parse(require('fs').readFileSync('package.json', 'utf8')); console.log('package.json ok')\"",
+    "prepare:bundle": "node -e \"const fs = require('fs'); fs.copyFileSync('node_modules/@logseq/libs/dist/lsplugin.user.js', 'lsplugin.user.js'); fs.copyFileSync('node_modules/@logseq/libs/dist/lsplugin.user.js.LICENSE.txt', 'lsplugin.user.js.LICENSE.txt'); console.log('Copied lsplugin.user.js and license')\""
+  },
+  "dependencies": {
+    "@logseq/libs": "latest"
+  },
+  "browserslist": [
+    "chrome 80"
+  ],
+  "logseq": {
+    "id": "mugpet-degrande-bullet-threading",
+    "icon": "./icon.svg"
+  }
+}

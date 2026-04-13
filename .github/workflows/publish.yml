@@ -1,0 +1,57 @@
+name: Publish plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_NAME: logseq-db-degrande-bullet-threading
+  ARCHIVE_NAME: logseq-db-degrande-bullet-threading
+  PACKAGE_FILES: |
+    README.md
+    package.json
+    index.html
+    plugin.js
+    plugin-main.js
+    custom.css
+    icon.svg
+    lsplugin.user.js
+    lsplugin.user.js.LICENSE.txt
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Package plugin
+        shell: bash
+        run: |
+          mkdir -p "${ARCHIVE_NAME}"
+
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              cp "$file" "${ARCHIVE_NAME}/"
+            fi
+          done <<< "${PACKAGE_FILES}"
+
+          if [ -d docs ]; then
+            cp -R docs "${ARCHIVE_NAME}/docs"
+          fi
+
+          zip -r "${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+
+      - name: Publish GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: "logseq-db-degrande-bullet-threading.zip,package.json"
+          artifactErrorsFailBuild: true
+          generateReleaseNotes: true
+          tag: ${{ github.ref_name }}
