@@ -1245,12 +1245,12 @@ function getGuideXForBlock(blockElement, anchor) {
 
   const isGuideBorder = guideElement.classList.contains("block-children-left-border");
   if (isGuideBorder) {
-    return rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2);
+    return Math.round(rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2));
   }
 
   const hostWindow = getHostWindow();
   const borderLeftWidth = Number.parseFloat(hostWindow?.getComputedStyle?.(guideElement)?.borderLeftWidth || "1") || 1;
-  return rect.left - anchorRect.left + anchor.scrollLeft + (borderLeftWidth / 2);
+  return Math.round(rect.left - anchorRect.left + anchor.scrollLeft + (borderLeftWidth / 2));
 }
 
 function clearRainbowBulletStyles() {
