@@ -38,6 +38,10 @@ Once installed, threading activates automatically when you click into a block. O
 
 - Logseq Desktop with a **DB graph** (not file-graph).
 
+## Credits
+
+A big thank you to [@pengx17](https://github.com/pengx17) for creating the original [Bullet Threading](https://github.com/pengx17/logseq-plugin-bullet-threading) plugin. This plugin is built from scratch for the new DB graph engine, but the idea started there.
+
 ## License
 
 MIT
