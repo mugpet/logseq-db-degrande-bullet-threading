@@ -62,7 +62,11 @@ const MOTION_CHOICES = [
 const THREAD_SHAPE_CHOICES = [
   "Square",
   "Rounded",
-  "Curved",
+];
+
+const THREAD_END_CHOICES = [
+  "Top",
+  "Side",
 ];
 
 const THREAD_WIDTH_CHOICES = [
@@ -164,9 +168,18 @@ const SETTINGS_SCHEMA = [
     key: "threadShape",
     type: "enum",
     title: "Thread shape",
-    description: "Choose between square bends, rounded bends, or smooth curves.",
+    description: "Choose between square bends or rounded bends.",
     default: "Square",
     enumChoices: THREAD_SHAPE_CHOICES,
+    enumPicker: "select",
+  },
+  {
+    key: "threadEnd",
+    type: "enum",
+    title: "Thread end",
+    description: "Where the thread meets the target bullet: above or beside it.",
+    default: "Side",
+    enumChoices: THREAD_END_CHOICES,
     enumPicker: "select",
   },
 ];
@@ -179,6 +192,7 @@ const state = {
   threadWidth: "2px",
   motionLevel: "Drift",
   threadShape: "Square",
+  threadEnd: "Side",
   renderTimer: null,
   isDbGraph: false,
   overlayAnchor: null,
@@ -408,6 +422,7 @@ function applyPluginSettings(settings) {
   state.threadWidth = THREAD_WIDTH_CHOICES.includes(settings?.threadWidth) ? settings.threadWidth : "2px";
   state.motionLevel = normalizeMotionLevel(settings?.motionLevel);
   state.threadShape = normalizeThreadShape(settings?.threadShape);
+  state.threadEnd = normalizeThreadEnd(settings?.threadEnd);
 }
 
 function normalizeMotionLevel(nextValue) {
@@ -416,6 +431,10 @@ function normalizeMotionLevel(nextValue) {
 
 function normalizeThreadShape(nextValue) {
   return THREAD_SHAPE_CHOICES.includes(nextValue) ? nextValue : "Square";
+}
+
+function normalizeThreadEnd(nextValue) {
+  return THREAD_END_CHOICES.includes(nextValue) ? nextValue : "Side";
 }
 
 function getThreadShapeToken(value = state.threadShape) {
@@ -616,6 +635,13 @@ function setThreadShape(nextValue) {
   queueRender();
 }
 
+function setThreadEnd(nextValue) {
+  const normalized = normalizeThreadEnd(nextValue);
+  state.threadEnd = normalized;
+  persistPluginSetting({ threadEnd: normalized });
+  queueRender();
+}
+
 function buildAccentPresetButtons(group) {
   return ACCENT_PRESETS
     .filter((preset) => preset.group === group)
@@ -734,6 +760,16 @@ function buildPanelMarkup() {
                   `).join("")}
                 </div>
               </section>
+              <section class="dgbt-control-group">
+                <div class="dgbt-control-head">
+                  <strong>Thread end</strong>
+                </div>
+                <div class="dgbt-choice-row dgbt-choice-row-end">
+                  ${THREAD_END_CHOICES.map((choice) => `
+                    <button class="dgbt-choice-button" type="button" data-action="set-thread-end" data-value="${choice}">${choice}</button>
+                  `).join("")}
+                </div>
+              </section>
             </article>
           </section>
         </div>
@@ -781,6 +817,10 @@ function syncPanelState() {
 
   document.querySelectorAll("[data-action='set-thread-shape']").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.value === state.threadShape);
+  });
+
+  document.querySelectorAll("[data-action='set-thread-end']").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.value === state.threadEnd);
   });
 
   const statusText = document.querySelector("[data-role='panel-status-text']");
@@ -855,6 +895,12 @@ function mountPanel() {
 
     if (action === "set-thread-shape") {
       setThreadShape(actionTarget.dataset.value);
+      syncPanelState();
+      return;
+    }
+
+    if (action === "set-thread-end") {
+      setThreadEnd(actionTarget.dataset.value);
       syncPanelState();
       return;
     }
@@ -1302,63 +1348,83 @@ function buildSegmentGeometry(previous, current) {
   const directionY = deltaY === 0 ? 0 : Math.sign(deltaY);
   const verticalX = Number.isFinite(previous.guideX) ? previous.guideX : previous.x;
   const directionFromGuide = current.x === verticalX ? 0 : Math.sign(current.x - verticalX);
+  const endMode = state.threadEnd; // "Top" or "Side"
 
   // Start on the guide axis, below the source bullet
   const startY = previous.y + (directionY * previousRadius);
   const startPoint = { x: verticalX, y: startY };
 
-  // End above the target bullet (always arrive vertically)
+  // --- Side mode: end beside the target bullet ---
+  if (endMode === "Side" && directionFromGuide !== 0) {
+    const endSide = {
+      x: current.x - (directionFromGuide * currentRadius),
+      y: current.y,
+    };
+
+    if (state.threadShape === "Rounded") {
+      const horizontalOut = Math.abs(endSide.x - verticalX);
+      const verticalSpan = Math.abs(endSide.y - startPoint.y);
+
+      if (horizontalOut > 0 && verticalSpan > 0) {
+        const r = Math.min(4, horizontalOut, verticalSpan);
+        const cornerEndX = verticalX + (directionFromGuide * r);
+        const cornerStartY = current.y - (directionY * r);
+
+        return {
+          leadPath: "",
+          bodyPath: [
+          `M ${startPoint.x} ${startPoint.y}`,
+          `L ${verticalX} ${cornerStartY}`,
+          `Q ${verticalX} ${current.y} ${cornerEndX} ${current.y}`,
+          `L ${endSide.x} ${endSide.y}`,
+        ].join(" "),
+        };
+      }
+    }
+
+    // Square side
+    return {
+      leadPath: "",
+      bodyPath: [
+      `M ${startPoint.x} ${startPoint.y}`,
+      `L ${verticalX} ${current.y}`,
+      `L ${endSide.x} ${endSide.y}`,
+    ].join(" "),
+    };
+  }
+
+  // --- Top mode: end above the target bullet ---
   const endPoint = { x: current.x, y: current.y - (directionY * currentRadius) };
 
-  // --- Curved: smooth bezier from guide axis to target bullet ---
-  if (state.threadShape === "Curved" && directionFromGuide !== 0) {
-    const verticalSpan = Math.abs(endPoint.y - startPoint.y);
-
-    if (verticalSpan > 0) {
-      // CP1 continues vertically, CP2 arrives horizontally
-      const cp1x = startPoint.x;
-      const cp1y = startPoint.y + (directionY * verticalSpan * 0.65);
-      const cp2x = endPoint.x - (directionFromGuide * Math.abs(endPoint.x - startPoint.x) * 0.45);
-      const cp2y = endPoint.y;
-
-      return {
-        leadPath: "",
-        bodyPath: `M ${startPoint.x} ${startPoint.y} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${endPoint.x} ${endPoint.y}`,
-      };
-    }
-  }
-
-  // --- Rounded: same L-shape as square but with rounded corner ---
-  if (state.threadShape === "Rounded" && directionFromGuide !== 0) {
-    const horizontalOut = Math.abs(current.x - verticalX);
-    const verticalSpan = Math.abs(endPoint.y - startPoint.y);
-
-    if (horizontalOut > 0 && verticalSpan > 0) {
-      const turnY = endPoint.y - (directionY * 6);
-      const r = Math.min(4, horizontalOut, 6); // small rounding radius
-      const cornerEndX = verticalX + (directionFromGuide * r);
-      const cornerStartY = turnY - (directionY * r);
-      // End corner: horizontal→vertical
-      const r2 = Math.min(4, horizontalOut, 6);
-      const corner2StartX = current.x - (directionFromGuide * r2);
-      const corner2EndY = turnY + (directionY * r2);
-
-      return {
-        leadPath: "",
-        bodyPath: [
-        `M ${startPoint.x} ${startPoint.y}`,
-        `L ${verticalX} ${cornerStartY}`,
-        `Q ${verticalX} ${turnY} ${cornerEndX} ${turnY}`,
-        `L ${corner2StartX} ${turnY}`,
-        `Q ${current.x} ${turnY} ${current.x} ${corner2EndY}`,
-        `L ${endPoint.x} ${endPoint.y}`,
-      ].join(" "),
-      };
-    }
-  }
-
-  // --- Square / no offset: straight lines, go down guide then over and down to target ---
   if (directionFromGuide !== 0) {
+    if (state.threadShape === "Rounded") {
+      const horizontalOut = Math.abs(current.x - verticalX);
+      const verticalSpan = Math.abs(endPoint.y - startPoint.y);
+
+      if (horizontalOut > 0 && verticalSpan > 0) {
+        const turnY = endPoint.y - (directionY * 6);
+        const r = Math.min(4, horizontalOut, 6);
+        const cornerEndX = verticalX + (directionFromGuide * r);
+        const cornerStartY = turnY - (directionY * r);
+        const r2 = Math.min(4, horizontalOut, 6);
+        const corner2StartX = current.x - (directionFromGuide * r2);
+        const corner2EndY = turnY + (directionY * r2);
+
+        return {
+          leadPath: "",
+          bodyPath: [
+          `M ${startPoint.x} ${startPoint.y}`,
+          `L ${verticalX} ${cornerStartY}`,
+          `Q ${verticalX} ${turnY} ${cornerEndX} ${turnY}`,
+          `L ${corner2StartX} ${turnY}`,
+          `Q ${current.x} ${turnY} ${current.x} ${corner2EndY}`,
+          `L ${endPoint.x} ${endPoint.y}`,
+        ].join(" "),
+        };
+      }
+    }
+
+    // Square top
     const turnY = endPoint.y - (directionY * 6);
     return {
       leadPath: "",
@@ -1371,11 +1437,15 @@ function buildSegmentGeometry(previous, current) {
     };
   }
 
+  // Straight (no horizontal offset)
+  const straightEnd = endMode === "Side"
+    ? { x: current.x, y: current.y - (directionY * currentRadius) }
+    : endPoint;
   return {
     leadPath: "",
     bodyPath: [
     `M ${startPoint.x} ${startPoint.y}`,
-    `L ${endPoint.x} ${endPoint.y}`,
+    `L ${straightEnd.x} ${straightEnd.y}`,
   ].join(" "),
   };
 }

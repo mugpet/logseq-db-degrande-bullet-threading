@@ -63,8 +63,7 @@
   stroke-linejoin: miter;
 }
 
-html[data-dgbt-thread-shape="rounded"] .dgbt-overlay-path,
-html[data-dgbt-thread-shape="curved"] .dgbt-overlay-path {
+html[data-dgbt-thread-shape="rounded"] .dgbt-overlay-path {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
