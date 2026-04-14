@@ -1354,9 +1354,9 @@ function buildSegmentGeometry(previous, current) {
   const startY = previous.y + (directionY * previousRadius);
   const startPoint = { x: verticalX, y: startY };
 
-  // --- Side mode: end beside the target bullet (short 2px stub) ---
+  // --- Side mode: end beside the target bullet (short 6px stub) ---
   if (endMode === "Side" && directionFromGuide !== 0) {
-    const sideStub = 2;
+    const sideStub = 6;
     const endSide = {
       x: verticalX + (directionFromGuide * sideStub),
       y: current.y,
