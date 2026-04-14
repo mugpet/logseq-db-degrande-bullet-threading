@@ -1356,7 +1356,7 @@ function buildSegmentGeometry(previous, current) {
 
   // --- Side mode: end beside the target bullet (short 6px stub) ---
   if (endMode === "Side" && directionFromGuide !== 0) {
-    const sideStub = 6;
+    const sideStub = 7;
     const endSide = {
       x: verticalX + (directionFromGuide * sideStub),
       y: current.y,
