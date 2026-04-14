@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.1.1";
+const FALLBACK_PLUGIN_VERSION = "0.3.2";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -67,6 +67,7 @@ const THREAD_SHAPE_CHOICES = [
 const THREAD_END_CHOICES = [
   "Top",
   "Side",
+  "Bouble",
 ];
 
 const THREAD_WIDTH_CHOICES = [
@@ -177,7 +178,7 @@ const SETTINGS_SCHEMA = [
     key: "threadEnd",
     type: "enum",
     title: "Thread end",
-    description: "Where the thread meets the target bullet: above or beside it.",
+    description: "Where the thread meets the target bullet: above it, beside it, or wrapped in a bouble.",
     default: "Side",
     enumChoices: THREAD_END_CHOICES,
     enumPicker: "select",
@@ -435,7 +436,15 @@ function normalizeThreadShape(nextValue) {
 }
 
 function normalizeThreadEnd(nextValue) {
+  if (nextValue === "Bubble") {
+    return "Bouble";
+  }
+
   return THREAD_END_CHOICES.includes(nextValue) ? nextValue : "Side";
+}
+
+function getThreadEndToken(value = state.threadEnd) {
+  return normalizeThreadEnd(value).toLowerCase().replace(/\s+/g, "-");
 }
 
 function getThreadShapeToken(value = state.threadShape) {
@@ -682,24 +691,6 @@ function buildPanelMarkup() {
         <div class="dgbt-panel-main">
           <section class="dgbt-panel-controls-column">
             <article class="dgbt-panel-card dgbt-panel-card-controls">
-              <div class="dgbt-panel-card-head">
-                <div>
-                  <p class="dgbt-panel-card-eyebrow">Behavior</p>
-                  <h2>Threading controls</h2>
-                  <p class="dgbt-panel-card-copy">A compact live sample shows the line, dot, thickness, and motion style.</p>
-                </div>
-              </div>
-              <div class="dgbt-panel-status-strip">
-                <span class="dgbt-panel-pill" data-role="panel-status-text">Threading active</span>
-                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-motion-pill">Drift motion</span>
-                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-width-pill">2px thread width</span>
-              </div>
-              <div class="dgbt-thread-preview" data-role="panel-thread-preview" data-motion="drift" data-accent-mode="solid" data-shape="square">
-                <div class="dgbt-thread-preview-line" aria-hidden="true">
-                  <span class="dgbt-thread-preview-core"></span>
-                  <span class="dgbt-thread-preview-dot"></span>
-                </div>
-              </div>
               <label class="dgbt-switch-row">
                 <div>
                   <strong>Enable active-path threading</strong>
@@ -858,6 +849,7 @@ function syncPanelState() {
     threadPreview.dataset.motion = state.motionLevel.toLowerCase();
     threadPreview.dataset.accentMode = isRainbowAccentMode() ? "rainbow" : "solid";
     threadPreview.dataset.shape = getThreadShapeToken();
+    threadPreview.dataset.end = getThreadEndToken();
     threadPreview.classList.toggle("is-paused", !state.enabled);
   }
 }
@@ -1192,6 +1184,24 @@ function getBlockBulletElement(blockElement) {
   return null;
 }
 
+function getBlockControlElement(blockElement) {
+  if (!blockElement || isBlockInProperties(blockElement)) {
+    return null;
+  }
+
+  return blockElement.querySelector(":scope > div > :is(div.items-center, div.block-control-wrap)")
+    || blockElement.querySelector("div.items-center, div.block-control-wrap");
+}
+
+function getBlockCollapseControlElement(blockElement) {
+  if (!blockElement || isBlockInProperties(blockElement)) {
+    return null;
+  }
+
+  return blockElement.querySelector(":scope > div > :is(div.items-center, div.block-control-wrap) .block-control")
+    || blockElement.querySelector(".block-control");
+}
+
 function getBlockBulletVisualElement(blockElement) {
   if (!blockElement || isBlockInProperties(blockElement)) {
     return null;
@@ -1309,6 +1319,8 @@ function getPointForBlock(blockElement) {
   const anchor = state.overlayAnchor || getOverlayAnchorElement();
   const bulletElement = getBlockBulletElement(blockElement);
   const bulletVisualElement = getBlockBulletVisualElement(blockElement);
+  const controlElement = getBlockControlElement(blockElement);
+  const collapseControlElement = getBlockCollapseControlElement(blockElement);
 
   if (!bulletElement || !anchor) {
     return null;
@@ -1328,12 +1340,82 @@ function getPointForBlock(blockElement) {
   const positionRect = visualRect && visualRect.width > 0 && visualRect.height > 0
     ? visualRect
     : rect;
+  let endBox = null;
+
+  if (state.threadEnd === "Bouble") {
+    const rects = [];
+    const collectRect = (element) => {
+      if (!element) {
+        return;
+      }
+
+      const elementRect = element.getBoundingClientRect();
+
+      if (elementRect.width <= 0 && elementRect.height <= 0) {
+        return;
+      }
+
+      rects.push({
+        left: elementRect.left - anchorRect.left + anchor.scrollLeft,
+        right: elementRect.right - anchorRect.left + anchor.scrollLeft,
+        top: elementRect.top - anchorRect.top + anchor.scrollTop,
+        bottom: elementRect.bottom - anchorRect.top + anchor.scrollTop,
+      });
+    };
+
+    collectRect(collapseControlElement);
+    collectRect(bulletElement);
+
+    if (bulletVisualElement && bulletVisualElement !== bulletElement) {
+      collectRect(bulletVisualElement);
+    }
+
+    if (!rects.length && controlElement) {
+      collectRect(controlElement);
+    }
+
+    if (rects.length) {
+      const boxPaddingX = 0;
+      const boxPaddingY = -1;
+      const minWidth = 14;
+      const minHeight = 12;
+      const boxOffsetY = -1;
+      const boxHeightAdjust = -2;
+      let left = Math.min(...rects.map((candidate) => candidate.left)) - boxPaddingX + 4;
+      let right = Math.max(...rects.map((candidate) => candidate.right)) + boxPaddingX - 1;
+      let top = Math.min(...rects.map((candidate) => candidate.top)) - boxPaddingY;
+      let bottom = Math.max(...rects.map((candidate) => candidate.bottom)) + boxPaddingY;
+      const width = right - left;
+      const height = bottom - top;
+
+      if (width < minWidth) {
+        right += minWidth - width;
+      }
+
+      if (height < minHeight) {
+        const extra = minHeight - height;
+        top -= extra / 2;
+        bottom += extra / 2;
+      }
+
+      top += boxOffsetY;
+      bottom += boxOffsetY + boxHeightAdjust;
+
+      endBox = {
+        left,
+        right,
+        top,
+        bottom,
+      };
+    }
+  }
 
   return {
     x: positionRect.left - anchorRect.left + anchor.scrollLeft + (positionRect.width / 2),
     y: positionRect.top - anchorRect.top + anchor.scrollTop + (positionRect.height / 2),
     radius: Math.max(3, radiusSource / 2),
     guideX: getGuideXForBlock(blockElement, anchor),
+    endBox,
   };
 }
 
@@ -1350,11 +1432,63 @@ function buildSegmentGeometry(previous, current) {
   const directionY = deltaY === 0 ? 0 : Math.sign(deltaY);
   const verticalX = Number.isFinite(previous.guideX) ? previous.guideX : previous.x;
   const directionFromGuide = current.x === verticalX ? 0 : Math.sign(current.x - verticalX);
-  const endMode = state.threadEnd; // "Top" or "Side"
+  const endMode = state.threadEnd; // "Top", "Side", or "Bouble"
 
   // Start on the guide axis, below the source bullet
-  const startY = previous.y + (directionY * previousRadius);
+  const startY = previous.y + (directionY * previousRadius) + 4;
   const startPoint = { x: verticalX, y: startY };
+
+  if (endMode === "Bouble" && current.endBox) {
+    const boxLeft = Math.min(current.endBox.left, current.endBox.right);
+    const boxRight = Math.max(current.endBox.left, current.endBox.right);
+    const boxTop = Math.min(current.endBox.top, current.endBox.bottom);
+    const boxBottom = Math.max(current.endBox.top, current.endBox.bottom);
+    const horizontalOut = Math.abs(boxLeft - verticalX);
+    const entryY = Math.max(boxTop, Math.min(current.y, boxBottom));
+    const verticalSpan = Math.abs(entryY - startPoint.y);
+    const boxRadius = state.threadShape === "Rounded"
+      ? Math.min(8, (boxRight - boxLeft) / 2, (boxBottom - boxTop) / 2)
+      : 0;
+    const connector = [
+      `M ${startPoint.x} ${startPoint.y}`,
+    ];
+
+    if (state.threadShape === "Rounded" && horizontalOut > 0 && verticalSpan > 0) {
+      const r = Math.min(4, horizontalOut, verticalSpan);
+      const cornerEndX = verticalX + (Math.sign(boxLeft - verticalX) * r);
+      const cornerStartY = entryY - (directionY * r);
+
+      connector.push(`L ${verticalX} ${cornerStartY}`);
+      connector.push(`Q ${verticalX} ${entryY} ${cornerEndX} ${entryY}`);
+      connector.push(`L ${boxLeft} ${entryY}`);
+    } else {
+      connector.push(`L ${verticalX} ${entryY}`);
+      connector.push(`L ${boxLeft} ${entryY}`);
+    }
+
+    if (boxRadius > 0) {
+      connector.push(`L ${boxLeft} ${boxTop + boxRadius}`);
+      connector.push(`Q ${boxLeft} ${boxTop} ${boxLeft + boxRadius} ${boxTop}`);
+      connector.push(`L ${boxRight - boxRadius} ${boxTop}`);
+      connector.push(`Q ${boxRight} ${boxTop} ${boxRight} ${boxTop + boxRadius}`);
+      connector.push(`L ${boxRight} ${boxBottom - boxRadius}`);
+      connector.push(`Q ${boxRight} ${boxBottom} ${boxRight - boxRadius} ${boxBottom}`);
+      connector.push(`L ${boxLeft + boxRadius} ${boxBottom}`);
+      connector.push(`Q ${boxLeft} ${boxBottom} ${boxLeft} ${boxBottom - boxRadius}`);
+      connector.push(`L ${boxLeft} ${entryY}`);
+    } else {
+      connector.push(`L ${boxLeft} ${boxTop}`);
+      connector.push(`L ${boxRight} ${boxTop}`);
+      connector.push(`L ${boxRight} ${boxBottom}`);
+      connector.push(`L ${boxLeft} ${boxBottom}`);
+      connector.push(`L ${boxLeft} ${entryY}`);
+    }
+
+    return {
+      leadPath: "",
+      bodyPath: connector.join(" "),
+    };
+  }
 
   // --- Side mode: end beside the target bullet (short 6px stub) ---
   if (endMode === "Side" && directionFromGuide !== 0) {

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Degrande Bullet Threading v0.1.1</title>
-    <meta name="degrande-bullet-threading-version" content="0.1.1">
+    <title>Degrande Bullet Threading v0.3.2</title>
+    <meta name="degrande-bullet-threading-version" content="0.3.2">
     <style>
       :root {
         --dgbt-panel-bg: rgba(248, 250, 255, 0.94);
@@ -237,6 +237,48 @@
         border-radius: 0;
       }
 
+      .dgbt-thread-preview-endbox {
+        position: absolute;
+        top: calc(50% - 1px);
+        right: -1px;
+        width: 18px;
+        height: 12px;
+        transform: translateY(-50%);
+        border: max(2px, calc(var(--dgbt-panel-thread-width) * 0.75)) solid color-mix(in srgb, var(--dgbt-panel-preview-accent) 88%, white 12%);
+        border-radius: 8px;
+        box-sizing: border-box;
+        opacity: 0;
+        z-index: 2;
+      }
+
+      .dgbt-thread-preview[data-shape="square"] .dgbt-thread-preview-endbox {
+        border-radius: 0;
+      }
+
+      .dgbt-thread-preview[data-shape="rounded"] .dgbt-thread-preview-endbox {
+        border-radius: 8px;
+      }
+
+      .dgbt-thread-preview-endbox::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        transform: translateY(-50%);
+        border-radius: 3px;
+        background: color-mix(in srgb, var(--dgbt-panel-preview-accent) 24%, white 76%);
+      }
+
+      .dgbt-thread-preview[data-shape="square"] .dgbt-thread-preview-endbox::before {
+        border-radius: 0;
+      }
+
+      .dgbt-thread-preview[data-shape="rounded"] .dgbt-thread-preview-endbox::before {
+        border-radius: 3px;
+      }
+
       .dgbt-thread-preview-dot {
         position: absolute;
         top: 50%;
@@ -247,7 +289,19 @@
         border-radius: 999px;
         background: color-mix(in srgb, var(--dgbt-panel-preview-accent) 88%, white 12%);
         box-shadow: none;
-        z-index: 2;
+        z-index: 3;
+      }
+
+      .dgbt-thread-preview[data-end="bouble"] .dgbt-thread-preview-core {
+        width: calc(100% - 16px);
+      }
+
+      .dgbt-thread-preview[data-end="bouble"] .dgbt-thread-preview-endbox {
+        opacity: 1;
+      }
+
+      .dgbt-thread-preview[data-end="bouble"] .dgbt-thread-preview-dot {
+        right: 0;
       }
 
       .dgbt-thread-preview[data-motion="still"] .dgbt-thread-preview-core,
@@ -274,6 +328,14 @@
 
       .dgbt-thread-preview[data-accent-mode="rainbow"] .dgbt-thread-preview-dot {
         background: var(--dgbt-rainbow-7);
+      }
+
+      .dgbt-thread-preview[data-accent-mode="rainbow"] .dgbt-thread-preview-endbox {
+        border-color: var(--dgbt-rainbow-7);
+      }
+
+      .dgbt-thread-preview[data-accent-mode="rainbow"] .dgbt-thread-preview-endbox::before {
+        background: color-mix(in srgb, var(--dgbt-rainbow-7) 24%, white 76%);
       }
 
       .dgbt-thread-preview[data-accent-mode="rainbow"][data-motion="drift"] .dgbt-thread-preview-core {
@@ -465,7 +527,7 @@
       }
 
       .dgbt-choice-row-end {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .dgbt-choice-pill {
