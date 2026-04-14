@@ -62,6 +62,7 @@ const MOTION_CHOICES = [
 const THREAD_SHAPE_CHOICES = [
   "Square",
   "Rounded",
+  "Curved",
 ];
 
 const THREAD_WIDTH_CHOICES = [
@@ -163,7 +164,7 @@ const SETTINGS_SCHEMA = [
     key: "threadShape",
     type: "enum",
     title: "Thread shape",
-    description: "Choose between square bends or rounded bends.",
+    description: "Choose between square bends, rounded bends, or smooth curves.",
     default: "Square",
     enumChoices: THREAD_SHAPE_CHOICES,
     enumPicker: "select",
@@ -1309,8 +1310,26 @@ function buildSegmentGeometry(previous, current) {
   // End above the target bullet (always arrive vertically)
   const endPoint = { x: current.x, y: current.y - (directionY * currentRadius) };
 
+  // --- Curved: smooth bezier from guide axis to target bullet ---
+  if (state.threadShape === "Curved" && directionFromGuide !== 0) {
+    const verticalSpan = Math.abs(endPoint.y - startPoint.y);
+
+    if (verticalSpan > 0) {
+      // CP1 continues vertically, CP2 arrives horizontally
+      const cp1x = startPoint.x;
+      const cp1y = startPoint.y + (directionY * verticalSpan * 0.65);
+      const cp2x = endPoint.x - (directionFromGuide * Math.abs(endPoint.x - startPoint.x) * 0.45);
+      const cp2y = endPoint.y;
+
+      return {
+        leadPath: "",
+        bodyPath: `M ${startPoint.x} ${startPoint.y} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${endPoint.x} ${endPoint.y}`,
+      };
+    }
+  }
+
   // --- Rounded: same L-shape as square but with rounded corner ---
-  if (state.threadShape !== "Square" && directionFromGuide !== 0) {
+  if (state.threadShape === "Rounded" && directionFromGuide !== 0) {
     const horizontalOut = Math.abs(current.x - verticalX);
     const verticalSpan = Math.abs(endPoint.y - startPoint.y);
 
