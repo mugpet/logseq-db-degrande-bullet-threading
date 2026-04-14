@@ -207,6 +207,7 @@ const state = {
   panelPreviewRaf: null,
   lastRuntimeStyleText: "",
   lastEnabledClassState: null,
+  settingsSelfUpdate: 0,
 };
 
 function getAccentPreset(token) {
@@ -574,6 +575,7 @@ function persistPluginSetting(partialSettings) {
   }
 
   try {
+    state.settingsSelfUpdate = Date.now();
     logseq.updateSettings(partialSettings);
   } catch (error) {
     console.error("[Degrande Bullet Threading] Failed to persist settings", error);
@@ -1525,6 +1527,7 @@ function renderOverlayPath() {
 
   if (points.length > 1 && state.overlaySegments) {
     state.overlayCorePath?.setAttribute("d", "");
+    const strokeWidth = state.threadWidth;
     state.overlaySegments.innerHTML = points
       .slice(1)
       .map((point, index) => {
@@ -1534,9 +1537,9 @@ function renderOverlayPath() {
           : "var(--dgbt-thread-active-color)";
         return [
           leadPath
-            ? `<path class="dgbt-overlay-path dgbt-overlay-path-lead" d="${leadPath}" style="stroke:${segmentStroke}"></path>`
+            ? `<path class="dgbt-overlay-path dgbt-overlay-path-lead" d="${leadPath}" style="stroke:${segmentStroke};stroke-width:${strokeWidth}"></path>`
             : "",
-          `<path class="dgbt-overlay-path dgbt-overlay-path-segment" d="${bodyPath}" style="stroke:${segmentStroke}"></path>`,
+          `<path class="dgbt-overlay-path dgbt-overlay-path-segment" d="${bodyPath}" style="stroke:${segmentStroke};stroke-width:${strokeWidth}"></path>`,
         ].join("");
       })
       .join("");
@@ -1548,6 +1551,7 @@ function renderOverlayPath() {
   }
 
   state.overlayCorePath?.setAttribute("d", pathData);
+  state.overlayCorePath?.style.setProperty("stroke-width", state.threadWidth);
 }
 
 function bindHostObservers() {
@@ -1705,6 +1709,10 @@ async function main() {
 
   if (typeof logseq.onSettingsChanged === "function") {
     logseq.onSettingsChanged((newSettings) => {
+      if (Date.now() - state.settingsSelfUpdate < 500) {
+        return;
+      }
+
       applyPluginSettings(newSettings || {});
       queueRender();
     });

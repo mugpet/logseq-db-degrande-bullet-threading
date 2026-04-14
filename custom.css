@@ -94,12 +94,12 @@ html[data-dgbt-thread-shape="square"] .dgbt-overlay-path {
 }
 
 html[data-dgbt-motion="drift"] .dgbt-overlay-path-core {
-  stroke-dasharray: 10 14;
+  stroke-dasharray: 10 2;
   animation: dgbt-overlay-drift 1800ms linear infinite;
 }
 
 html[data-dgbt-motion="drift"] .dgbt-overlay-path-segment {
-  stroke-dasharray: 10 14;
+  stroke-dasharray: 10 2;
   animation: dgbt-overlay-drift 1800ms linear infinite;
 }
 
@@ -450,7 +450,7 @@ html[data-theme="dark"] .dgbt-pagebar {
 
 .dgbt-pagebar[data-motion="drift"] .dgbt-thread-stem,
 .dgbt-pagebar[data-motion="drift"] .dgbt-thread-branch {
-  background-image: repeating-linear-gradient(180deg, var(--dgbt-accent) 0 12px, color-mix(in srgb, var(--dgbt-accent) 28%, transparent) 12px 22px);
+  background-image: repeating-linear-gradient(180deg, var(--dgbt-accent) 0 10px, color-mix(in srgb, var(--dgbt-accent) 28%, transparent) 10px 12px);
   animation: dgbt-rail-drift 1800ms linear infinite;
 }
 
@@ -492,7 +492,7 @@ html[data-theme="dark"] .dgbt-pagebar {
   }
 
   to {
-    stroke-dashoffset: -24;
+    stroke-dashoffset: -12;
     opacity: 0.9;
   }
 }
@@ -508,7 +508,7 @@ html[data-theme="dark"] .dgbt-pagebar {
   }
 
   to {
-    background-position: 0 48px;
+    background-position: 0 24px;
     opacity: 0.92;
   }
 }
