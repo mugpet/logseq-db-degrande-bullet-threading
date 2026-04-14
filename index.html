@@ -13,6 +13,7 @@
         --dgbt-panel-text: #132033;
         --dgbt-panel-muted: #5d6c82;
         --dgbt-panel-accent: #1f7ae0;
+        --dgbt-panel-preview-accent: #1f7ae0;
         --dgbt-panel-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
         --dgbt-panel-thread-width: 2px;
         --dgbt-panel-motion-duration: 700ms;
@@ -225,7 +226,7 @@
 
       .dgbt-thread-preview-core {
         height: calc(var(--dgbt-panel-thread-width) + 1px);
-        background: color-mix(in srgb, var(--dgbt-panel-accent) 88%, white 12%);
+        background: color-mix(in srgb, var(--dgbt-panel-preview-accent) 88%, white 12%);
       }
 
       .dgbt-thread-preview[data-shape="rounded"] .dgbt-thread-preview-core {
@@ -244,7 +245,7 @@
         height: calc(var(--dgbt-panel-thread-width) + 12px);
         transform: translateY(-50%);
         border-radius: 999px;
-        background: color-mix(in srgb, var(--dgbt-panel-accent) 88%, white 12%);
+        background: color-mix(in srgb, var(--dgbt-panel-preview-accent) 88%, white 12%);
         box-shadow: none;
         z-index: 2;
       }
@@ -258,7 +259,7 @@
 
       .dgbt-thread-preview[data-motion="drift"] .dgbt-thread-preview-core {
         background:
-          repeating-linear-gradient(90deg, var(--dgbt-panel-accent) 0 14px, color-mix(in srgb, var(--dgbt-panel-accent) 78%, white 22%) 14px 24px);
+          repeating-linear-gradient(90deg, var(--dgbt-panel-preview-accent) 0 14px, color-mix(in srgb, var(--dgbt-panel-preview-accent) 78%, white 22%) 14px 24px);
         animation: dgbt-panel-line-drift 1800ms linear infinite;
       }
 
@@ -522,13 +523,13 @@
       @keyframes dgbt-panel-dot-drift {
         0%, 100% {
           transform: translateY(-50%);
-          box-shadow: 0 0 0 5px color-mix(in srgb, var(--dgbt-panel-accent) 12%, transparent);
+          box-shadow: 0 0 0 5px color-mix(in srgb, var(--dgbt-panel-preview-accent) 12%, transparent);
           opacity: 0.94;
         }
 
         50% {
           transform: translateY(-50%);
-          box-shadow: 0 0 0 9px color-mix(in srgb, var(--dgbt-panel-accent) 0%, transparent);
+          box-shadow: 0 0 0 9px color-mix(in srgb, var(--dgbt-panel-preview-accent) 0%, transparent);
           opacity: 1;
         }
       }

@@ -845,7 +845,7 @@ function syncPanelState() {
     accentLabel.textContent = getAccentSelectionLabel();
   }
 
-  document.documentElement.style.setProperty("--dgbt-panel-accent", getResolvedAccentPreviewColor());
+  document.documentElement.style.setProperty("--dgbt-panel-preview-accent", getResolvedAccentPreviewColor());
   document.documentElement.style.setProperty("--dgbt-panel-thread-width", state.threadWidth);
   document.documentElement.style.setProperty("--dgbt-panel-motion-duration", getMotionTiming());
   getRainbowPaletteColors().forEach((color, index) => {
