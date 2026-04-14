@@ -7,13 +7,13 @@ const PAGEBAR_ROOT_ID = "degrande-bullet-threading-pagebar";
 const MAIN_CONTENT_CONTAINER_ID = "main-content-container";
 const OVERLAY_ROOT_ID = "degrande-bullet-threading-overlay";
 const OVERLAY_ANCHOR_CLASS = "dgbt-overlay-anchor";
-const SETTINGS_PREVIEW_STAGE_ID = "degrande-bullet-threading-settings-preview";
 const STYLE_RESOURCE = "custom.css";
+const RUNTIME_STYLE_ELEMENT_ID = "degrande-bullet-threading-runtime-style";
 const PAGEBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredPagebars";
 const TOOLBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredToolbars";
 const COMMAND_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredCommands";
+const CLEANUP_REGISTRY_KEY = "__degrandeBulletThreadingCleanup";
 const THREADING_STATE_CLASS = "dgbt-threading-enabled";
-const THREADING_STYLE_KEY = "degrande-bullet-threading-runtime";
 const MAIN_UI_INLINE_STYLE = {
   position: "fixed",
   top: "0",
@@ -46,22 +46,69 @@ const PROPERTY_CONTAINER_SELECTOR = [
   "[data-property-type]",
 ].join(", ");
 
+try {
+  if (typeof window[CLEANUP_REGISTRY_KEY] === "function") {
+    window[CLEANUP_REGISTRY_KEY]();
+  }
+} catch (_error) {
+  // Ignore stale cleanup failures from previous plugin instances.
+}
+
 const MOTION_CHOICES = [
   "Still",
-  "Gentle",
-  "Expressive",
+  "Drift",
+];
+
+const THREAD_SHAPE_CHOICES = [
+  "Square",
+  "Rounded",
 ];
 
 const THREAD_WIDTH_CHOICES = [
   "1px",
   "2px",
   "3px",
+  "4px",
 ];
 
-const SURFACE_CHOICES = [
-  "Glass",
-  "Solid",
+const RAINBOW_ACCENT_TOKEN = "acc-rainbow";
+const RAINBOW_PRESET_TOKENS = ["red", "orange", "yellow", "green", "teal", "blue", "indigo", "pink"];
+
+const ACCENT_PRESETS = [
+  { token: "red", label: "Red", group: "preset", swatch: "#ef4444", cssValue: "#ef4444", previewColor: "#ef4444" },
+  { token: "orange", label: "Orange", group: "preset", swatch: "#fb923c", cssValue: "#fb923c", previewColor: "#fb923c" },
+  { token: "yellow", label: "Yellow", group: "preset", swatch: "#eab308", cssValue: "#eab308", previewColor: "#eab308" },
+  { token: "green", label: "Green", group: "preset", swatch: "#22c55e", cssValue: "#22c55e", previewColor: "#22c55e" },
+  { token: "teal", label: "Teal", group: "preset", swatch: "#14b8a6", cssValue: "#14b8a6", previewColor: "#14b8a6" },
+  { token: "blue", label: "Blue", group: "preset", swatch: "#1f7ae0", cssValue: "#1f7ae0", previewColor: "#1f7ae0" },
+  { token: "indigo", label: "Indigo", group: "preset", swatch: "#6366f1", cssValue: "#6366f1", previewColor: "#6366f1" },
+  { token: "purple", label: "Purple", group: "preset", swatch: "#a855f7", cssValue: "#a855f7", previewColor: "#a855f7" },
+  { token: "pink", label: "Pink", group: "preset", swatch: "#ec4899", cssValue: "#ec4899", previewColor: "#ec4899" },
+  { token: "grey", label: "Grey", group: "preset", swatch: "#9ca3af", cssValue: "#9ca3af", previewColor: "#9ca3af" },
+  { token: "mint", label: "Mint", group: "preset", swatch: "#34d399", cssValue: "#34d399", previewColor: "#34d399" },
+  { token: "rose", label: "Rose", group: "preset", swatch: "#f43f5e", cssValue: "#f43f5e", previewColor: "#f43f5e" },
+  { token: "amber", label: "Amber", group: "preset", swatch: "#f59e0b", cssValue: "#f59e0b", previewColor: "#f59e0b" },
+  { token: "sky", label: "Sky", group: "preset", swatch: "#38bdf8", cssValue: "#38bdf8", previewColor: "#38bdf8" },
+  { token: "lime", label: "Lime", group: "preset", swatch: "#84cc16", cssValue: "#84cc16", previewColor: "#84cc16" },
+  { token: "slate", label: "Slate", group: "preset", swatch: "#64748b", cssValue: "#64748b", previewColor: "#64748b" },
+  { token: RAINBOW_ACCENT_TOKEN, label: "Rainbow", group: "accent", swatch: "#ef4444", cssValue: "#ef4444", previewColor: "#ef4444" },
+  { token: "acc-app-accent", label: "Logseq Accent", group: "accent", swatch: "var(--ls-active-primary-color, var(--ls-link-text-color, #10b981))", cssValue: "var(--ls-active-primary-color, var(--ls-link-text-color, #10b981))", previewColor: "#10b981" },
+  { token: "acc-lt-blue", label: "Accent Lt Blue", group: "accent", swatch: "#b0c7ea", cssValue: "#8aa6d3", previewColor: "#8aa6d3" },
+  { token: "acc-coral", label: "Accent Coral", group: "accent", swatch: "#f49e8c", cssValue: "#de7c68", previewColor: "#de7c68" },
+  { token: "acc-salmon", label: "Accent Salmon", group: "accent", swatch: "#f49898", cssValue: "#de7a7a", previewColor: "#de7a7a" },
+  { token: "acc-rose", label: "Accent Rose", group: "accent", swatch: "#f68fbb", cssValue: "#d96798", previewColor: "#d96798" },
+  { token: "acc-blush", label: "Accent Blush", group: "accent", swatch: "#e992cc", cssValue: "#d16ead", previewColor: "#d16ead" },
+  { token: "acc-lilac", label: "Accent Lilac", group: "accent", swatch: "#e09bec", cssValue: "#c372d3", previewColor: "#c372d3" },
+  { token: "acc-lavender", label: "Accent Lavender", group: "accent", swatch: "#c69ee4", cssValue: "#aa7cd1", previewColor: "#aa7cd1" },
+  { token: "acc-indigo", label: "Accent Indigo", group: "accent", swatch: "#866cee", cssValue: "#6d51d9", previewColor: "#6d51d9" },
+  { token: "acc-periwinkle", label: "Accent Periwinkle", group: "accent", swatch: "#93a2f7", cssValue: "#7889e4", previewColor: "#7889e4" },
+  { token: "acc-sky", label: "Accent Sky", group: "accent", swatch: "#71b2f7", cssValue: "#4a90de", previewColor: "#4a90de" },
+  { token: "acc-cyan", label: "Accent Cyan", group: "accent", swatch: "#7acee1", cssValue: "#4caec5", previewColor: "#4caec5" },
+  { token: "acc-teal", label: "Accent Teal", group: "accent", swatch: "#7ecdbe", cssValue: "#59af9c", previewColor: "#59af9c" },
+  { token: "acc-sage", label: "Accent Sage", group: "accent", swatch: "#9fd2af", cssValue: "#7eb390", previewColor: "#7eb390" },
+  { token: "acc-apricot", label: "Accent Apricot", group: "accent", swatch: "#fca877", cssValue: "#df8a57", previewColor: "#df8a57" },
 ];
+const ACCENT_PRESET_MAP = Object.fromEntries(ACCENT_PRESETS.map((preset) => [preset.token, preset]));
 
 const SETTINGS_SCHEMA = [
   {
@@ -79,6 +126,22 @@ const SETTINGS_SCHEMA = [
     default: "#1f7ae0",
   },
   {
+    key: "accentColorMode",
+    type: "enum",
+    title: "Accent source",
+    description: "Internal selection mode for the accent color.",
+    default: "custom",
+    enumChoices: ["custom", "preset"],
+    enumPicker: "select",
+  },
+  {
+    key: "accentPresetToken",
+    type: "string",
+    title: "Accent preset token",
+    description: "Internal preset token for the selected accent color.",
+    default: "blue",
+  },
+  {
     key: "threadWidth",
     type: "enum",
     title: "Thread width",
@@ -92,41 +155,198 @@ const SETTINGS_SCHEMA = [
     type: "enum",
     title: "Motion level",
     description: "How lively the threading preview should feel while we build it out.",
-    default: "Expressive",
+    default: "Drift",
     enumChoices: MOTION_CHOICES,
     enumPicker: "select",
   },
   {
-    key: "surfaceStyle",
+    key: "threadShape",
     type: "enum",
-    title: "Surface style",
-    description: "Choose the shell treatment for the preview chrome.",
-    default: "Glass",
-    enumChoices: SURFACE_CHOICES,
+    title: "Thread shape",
+    description: "Choose between square bends or rounded bends.",
+    default: "Square",
+    enumChoices: THREAD_SHAPE_CHOICES,
     enumPicker: "select",
   },
 ];
 
 const state = {
   enabled: true,
+  accentColorMode: "custom",
+  accentPresetToken: "blue",
   accentColor: "#1f7ae0",
   threadWidth: "2px",
-  motionLevel: "Expressive",
-  surfaceStyle: "Glass",
+  motionLevel: "Drift",
+  threadShape: "Square",
   renderTimer: null,
   isDbGraph: false,
   overlayAnchor: null,
   overlayRoot: null,
   overlaySvg: null,
-  overlayGlowPath: null,
+  overlaySegments: null,
   overlayCorePath: null,
-  overlayDots: null,
+  rainbowBulletElements: [],
   hostObserver: null,
+  cleanupFns: [],
   panelMounted: false,
   panelPreviewRaf: null,
   lastRuntimeStyleText: "",
   lastEnabledClassState: null,
 };
+
+function getAccentPreset(token) {
+  return ACCENT_PRESET_MAP[String(token || "").trim()] || null;
+}
+
+function registerCleanup(fn) {
+  if (typeof fn === "function") {
+    state.cleanupFns.push(fn);
+  }
+}
+
+function cleanupPluginRuntime() {
+  while (state.cleanupFns.length) {
+    const cleanupFn = state.cleanupFns.pop();
+
+    try {
+      cleanupFn();
+    } catch (_error) {
+      // Ignore cleanup failures from stale DOM/plugin state.
+    }
+  }
+
+  if (state.hostObserver) {
+    state.hostObserver.disconnect();
+    state.hostObserver = null;
+  }
+
+  if (state.renderTimer) {
+    cancelAnimationFrame(state.renderTimer);
+    state.renderTimer = null;
+  }
+
+  clearRainbowBulletStyles();
+  state.overlayRoot?.remove?.();
+  state.overlayRoot = null;
+  state.overlaySvg = null;
+  state.overlaySegments = null;
+  state.overlayCorePath = null;
+  state.overlayAnchor?.classList?.remove?.(OVERLAY_ANCHOR_CLASS);
+  state.overlayAnchor = null;
+}
+
+function rgbChannelToHex(channel) {
+  return Math.max(0, Math.min(255, channel)).toString(16).padStart(2, "0");
+}
+
+function rgbStringToHex(value) {
+  const match = String(value || "").trim().match(/^rgba?\(([^)]+)\)$/i);
+
+  if (!match) {
+    return isHexColorValue(value) ? sanitizeHexColor(value) : "";
+  }
+
+  const parts = match[1]
+    .split(",")
+    .map((part) => Number.parseFloat(part.trim()))
+    .filter(Number.isFinite);
+
+  if (parts.length < 3) {
+    return "";
+  }
+
+  return `#${rgbChannelToHex(parts[0])}${rgbChannelToHex(parts[1])}${rgbChannelToHex(parts[2])}`;
+}
+
+function resolveCssColorValue(value, fallback = "#1f7ae0") {
+  if (isHexColorValue(value)) {
+    return sanitizeHexColor(value);
+  }
+
+  const hostDocument = getHostDocument();
+  const mountTarget = hostDocument.body || hostDocument.documentElement;
+
+  if (!mountTarget) {
+    return fallback;
+  }
+
+  try {
+    const probe = hostDocument.createElement("span");
+    probe.style.position = "absolute";
+    probe.style.opacity = "0";
+    probe.style.pointerEvents = "none";
+    probe.style.color = String(value || fallback);
+    mountTarget.appendChild(probe);
+    const computedColor = (hostDocument.defaultView || window).getComputedStyle(probe).color;
+    probe.remove();
+    return rgbStringToHex(computedColor) || fallback;
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function getPresetDisplayColor(presetOrToken) {
+  const preset = typeof presetOrToken === "string"
+    ? getAccentPreset(presetOrToken)
+    : presetOrToken;
+
+  if (!preset) {
+    return "#1f7ae0";
+  }
+
+  return resolveCssColorValue(preset.cssValue || preset.swatch || preset.previewColor, preset.previewColor || "#1f7ae0");
+}
+
+function isRainbowAccentMode() {
+  return state.accentColorMode === "preset" && state.accentPresetToken === RAINBOW_ACCENT_TOKEN;
+}
+
+function getRainbowPaletteColors() {
+  return RAINBOW_PRESET_TOKENS.map((token) => getPresetDisplayColor(token));
+}
+
+function getRainbowSegmentColor(depthIndex) {
+  const palette = getRainbowPaletteColors();
+  const normalizedIndex = Math.max(0, Number(depthIndex) || 0);
+  return palette[(normalizedIndex * 3 + 1) % palette.length] || "#1f7ae0";
+}
+
+function getResolvedAccentCssValue() {
+  if (isRainbowAccentMode()) {
+    return getRainbowSegmentColor(0);
+  }
+
+  if (state.accentColorMode === "preset") {
+    return getPresetDisplayColor(state.accentPresetToken) || state.accentColor;
+  }
+
+  return state.accentColor;
+}
+
+function getResolvedAccentPreviewColor() {
+  if (isRainbowAccentMode()) {
+    return getRainbowSegmentColor(0);
+  }
+
+  if (state.accentColorMode === "preset") {
+    return getPresetDisplayColor(state.accentPresetToken);
+  }
+
+  return state.accentColor;
+}
+
+function getAccentSelectionLabel() {
+  if (isRainbowAccentMode()) {
+    return "Rainbow mode";
+  }
+
+  if (state.accentColorMode === "preset") {
+    const preset = getAccentPreset(state.accentPresetToken);
+    return preset ? `${preset.label} · ${getResolvedAccentPreviewColor()}` : "Preset accent";
+  }
+
+  return state.accentColor;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -180,9 +400,25 @@ function isHexColorValue(value) {
 function applyPluginSettings(settings) {
   state.enabled = settings?.threadingEnabled !== false;
   state.accentColor = sanitizeHexColor(settings?.accentColor);
+  state.accentColorMode = settings?.accentColorMode === "preset" && getAccentPreset(settings?.accentPresetToken)
+    ? "preset"
+    : "custom";
+  state.accentPresetToken = getAccentPreset(settings?.accentPresetToken)?.token || "blue";
   state.threadWidth = THREAD_WIDTH_CHOICES.includes(settings?.threadWidth) ? settings.threadWidth : "2px";
-  state.motionLevel = MOTION_CHOICES.includes(settings?.motionLevel) ? settings.motionLevel : "Expressive";
-  state.surfaceStyle = SURFACE_CHOICES.includes(settings?.surfaceStyle) ? settings.surfaceStyle : "Glass";
+  state.motionLevel = normalizeMotionLevel(settings?.motionLevel);
+  state.threadShape = normalizeThreadShape(settings?.threadShape);
+}
+
+function normalizeMotionLevel(nextValue) {
+  return MOTION_CHOICES.includes(nextValue) ? nextValue : "Drift";
+}
+
+function normalizeThreadShape(nextValue) {
+  return THREAD_SHAPE_CHOICES.includes(nextValue) ? nextValue : "Square";
+}
+
+function getThreadShapeToken(value = state.threadShape) {
+  return normalizeThreadShape(value).toLowerCase().replace(/\s+/g, "-");
 }
 
 function getMotionTiming() {
@@ -190,11 +426,11 @@ function getMotionTiming() {
     return "0ms";
   }
 
-  if (state.motionLevel === "Gentle") {
-    return "1200ms";
+  if (state.motionLevel === "Drift") {
+    return "1800ms";
   }
 
-  return "700ms";
+  return "1800ms";
 }
 
 function isDuplicateRegistrationError(error) {
@@ -253,7 +489,7 @@ function registerCommandPaletteSafely(config, handler) {
 
 function buildPagebarTemplate() {
   return `
-    <section id="${PAGEBAR_ROOT_ID}" class="dgbt-pagebar" data-motion="expressive" data-surface="glass">
+    <section id="${PAGEBAR_ROOT_ID}" class="dgbt-pagebar" data-motion="drift" data-accent-mode="solid" data-shape="square">
       <div class="dgbt-shell">
         <div class="dgbt-thread-rail" aria-hidden="true">
           <span class="dgbt-thread-dot dgbt-thread-dot-top"></span>
@@ -267,7 +503,7 @@ function buildPagebarTemplate() {
           <div class="dgbt-title">Active-path threading for Logseq DB</div>
           <div class="dgbt-meta">
             <span class="dgbt-chip" data-role="status-text">Threading active</span>
-            <span class="dgbt-chip dgbt-chip-muted" data-role="motion-text">Expressive motion</span>
+            <span class="dgbt-chip dgbt-chip-muted" data-role="motion-text">Drift motion</span>
           </div>
         </div>
         <div class="dgbt-actions">
@@ -332,8 +568,29 @@ function setThreadingEnabled(nextValue) {
 
 function setAccentColor(nextValue) {
   const normalized = sanitizeHexColor(nextValue);
+  state.accentColorMode = "custom";
   state.accentColor = normalized;
-  persistPluginSetting({ accentColor: normalized });
+  persistPluginSetting({
+    accentColorMode: "custom",
+    accentColor: normalized,
+  });
+  queueRender();
+}
+
+function setAccentPreset(nextToken) {
+  const preset = getAccentPreset(nextToken);
+
+  if (!preset) {
+    return;
+  }
+
+  state.accentColorMode = "preset";
+  state.accentPresetToken = preset.token;
+  persistPluginSetting({
+    accentColorMode: "preset",
+    accentPresetToken: preset.token,
+    accentColor: preset.previewColor,
+  });
   queueRender();
 }
 
@@ -345,88 +602,34 @@ function setThreadWidth(nextValue) {
 }
 
 function setMotionLevel(nextValue) {
-  const normalized = MOTION_CHOICES.includes(nextValue) ? nextValue : "Expressive";
+  const normalized = normalizeMotionLevel(nextValue);
   state.motionLevel = normalized;
   persistPluginSetting({ motionLevel: normalized });
   queueRender();
 }
 
-function setSurfaceStyle(nextValue) {
-  const normalized = SURFACE_CHOICES.includes(nextValue) ? nextValue : "Glass";
-  state.surfaceStyle = normalized;
-  persistPluginSetting({ surfaceStyle: normalized });
+function setThreadShape(nextValue) {
+  const normalized = normalizeThreadShape(nextValue);
+  state.threadShape = normalized;
+  persistPluginSetting({ threadShape: normalized });
   queueRender();
 }
 
-function getSettingsPreviewPathData() {
-  const stage = document.getElementById(SETTINGS_PREVIEW_STAGE_ID);
-
-  if (!stage) {
-    return { pathData: "", points: [] };
-  }
-
-  const stageRect = stage.getBoundingClientRect();
-  const points = Array.from(stage.querySelectorAll("[data-preview-path-point]"))
-    .map((pointElement) => {
-      const rect = pointElement.getBoundingClientRect();
-      return {
-        x: rect.left - stageRect.left + (rect.width / 2),
-        y: rect.top - stageRect.top + (rect.height / 2),
-      };
-    });
-
-  return {
-    pathData: buildSvgPath(points),
-    points,
-  };
-}
-
-function renderSettingsPreview() {
-  const stage = document.getElementById(SETTINGS_PREVIEW_STAGE_ID);
-
-  if (!stage) {
-    return;
-  }
-
-  stage.style.setProperty("--dgbt-accent", state.accentColor);
-  stage.style.setProperty("--dgbt-thread-width", state.threadWidth);
-  stage.style.setProperty("--dgbt-thread-motion-duration", getMotionTiming());
-  stage.dataset.motion = state.motionLevel.toLowerCase();
-  stage.dataset.surface = state.surfaceStyle.toLowerCase();
-  stage.classList.toggle("is-paused", !state.enabled);
-
-  const { pathData, points } = getSettingsPreviewPathData();
-  const svg = stage.querySelector("[data-role='settings-preview-svg']");
-  const glowPath = stage.querySelector("[data-role='settings-preview-path-glow']");
-  const corePath = stage.querySelector("[data-role='settings-preview-path-core']");
-  const dots = stage.querySelector("[data-role='settings-preview-dots']");
-
-  if (!svg || !glowPath || !corePath || !dots) {
-    return;
-  }
-
-  svg.setAttribute("viewBox", `0 0 ${Math.max(stage.clientWidth, 1)} ${Math.max(stage.clientHeight, 1)}`);
-  glowPath.setAttribute("d", pathData);
-  corePath.setAttribute("d", pathData);
-  dots.innerHTML = points.map((point, index) => `
-    <circle
-      class="dgbt-settings-preview-dot${index === points.length - 1 ? " is-active" : ""}"
-      cx="${point.x}"
-      cy="${point.y}"
-      r="${index === points.length - 1 ? 6 : 5}"
-    ></circle>
-  `).join("");
-}
-
-function queueSettingsPreviewRender() {
-  if (state.panelPreviewRaf) {
-    cancelAnimationFrame(state.panelPreviewRaf);
-  }
-
-  state.panelPreviewRaf = requestAnimationFrame(() => {
-    state.panelPreviewRaf = null;
-    renderSettingsPreview();
-  });
+function buildAccentPresetButtons(group) {
+  return ACCENT_PRESETS
+    .filter((preset) => preset.group === group)
+    .map((preset) => `
+      <button
+        class="dgbt-accent-swatch-button${state.accentColorMode === "preset" && state.accentPresetToken === preset.token ? " is-active" : ""}${preset.token === "acc-app-accent" ? " is-special" : ""}${preset.token === RAINBOW_ACCENT_TOKEN ? " is-rainbow" : ""}"
+        type="button"
+        data-action="set-accent-preset"
+        data-value="${preset.token}"
+        title="${escapeHtml(preset.label)}"
+        aria-label="Set accent to ${escapeHtml(preset.label)}"
+        style="--dgbt-swatch-color:${getPresetDisplayColor(preset)};"
+      >${preset.token === "acc-app-accent" ? "A" : preset.token === RAINBOW_ACCENT_TOKEN ? "R" : ""}</button>
+    `)
+    .join("");
 }
 
 function buildPanelMarkup() {
@@ -441,74 +644,31 @@ function buildPanelMarkup() {
               <h1>Degrande Bullet Threading</h1>
               <span class="dgbt-panel-version">v${escapeHtml(PLUGIN_VERSION)}</span>
             </div>
-            <p class="dgbt-panel-subtitle">Tune the active-path threading with a live three-level preview on the left and the controls on the right. Changes apply directly to the graph as you adjust them.</p>
+            <p class="dgbt-panel-subtitle">Tune accent, width, and motion. Changes apply directly to the graph.</p>
           </div>
           <div class="dgbt-panel-header-actions">
             <button class="dgbt-panel-button dgbt-panel-button-secondary" type="button" data-action="close-panel">Close</button>
           </div>
         </header>
         <div class="dgbt-panel-main">
-          <section class="dgbt-panel-preview-column">
-            <article class="dgbt-panel-card dgbt-panel-card-hero">
-              <div class="dgbt-panel-card-head">
-                <div>
-                  <p class="dgbt-panel-card-eyebrow">Live Preview</p>
-                  <h2>Three levels with one active route</h2>
-                </div>
-                <div class="dgbt-panel-card-status" data-role="panel-status-text">Threading active</div>
-              </div>
-              <div class="dgbt-settings-preview-stage" id="${SETTINGS_PREVIEW_STAGE_ID}">
-                <svg class="dgbt-settings-preview-svg" data-role="settings-preview-svg" aria-hidden="true" focusable="false">
-                  <path class="dgbt-settings-preview-path dgbt-settings-preview-path-glow" data-role="settings-preview-path-glow"></path>
-                  <path class="dgbt-settings-preview-path dgbt-settings-preview-path-core" data-role="settings-preview-path-core"></path>
-                  <g data-role="settings-preview-dots"></g>
-                </svg>
-                <div class="dgbt-settings-preview-node dgbt-settings-preview-node-root is-active">
-                  <span class="dgbt-settings-preview-bullet" data-preview-path-point></span>
-                  <div class="dgbt-settings-preview-card">
-                    <div class="dgbt-settings-preview-label">Level 1</div>
-                    <strong>QMS - Afdeling Q</strong>
-                    <div class="dgbt-settings-preview-tags"><span>#QMS</span><span>#Work</span></div>
-                  </div>
-                </div>
-                <div class="dgbt-settings-preview-node dgbt-settings-preview-node-branch is-active">
-                  <span class="dgbt-settings-preview-bullet" data-preview-path-point></span>
-                  <div class="dgbt-settings-preview-card">
-                    <div class="dgbt-settings-preview-label">Level 2</div>
-                    <strong>Authentication</strong>
-                    <p>Shared branch node on the active route.</p>
-                  </div>
-                </div>
-                <div class="dgbt-settings-preview-node dgbt-settings-preview-node-leaf is-active">
-                  <span class="dgbt-settings-preview-bullet" data-preview-path-point></span>
-                  <div class="dgbt-settings-preview-card">
-                    <div class="dgbt-settings-preview-label">Level 3</div>
-                    <strong>Login / log ud</strong>
-                    <p>The currently selected node anchors the highlighted path.</p>
-                  </div>
-                </div>
-                <div class="dgbt-settings-preview-node dgbt-settings-preview-node-sibling">
-                  <span class="dgbt-settings-preview-bullet"></span>
-                  <div class="dgbt-settings-preview-card is-muted">
-                    <div class="dgbt-settings-preview-label">Sibling</div>
-                    <strong>Authorization</strong>
-                    <p>Muted until this branch becomes active.</p>
-                  </div>
-                </div>
-              </div>
-              <div class="dgbt-panel-preview-meta">
-                <span class="dgbt-panel-pill" data-role="panel-motion-pill">Expressive motion</span>
-                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-width-pill">2px thread width</span>
-                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-surface-pill">Glass surface</span>
-              </div>
-            </article>
-          </section>
-          <aside class="dgbt-panel-controls-column">
-            <article class="dgbt-panel-card">
+          <section class="dgbt-panel-controls-column">
+            <article class="dgbt-panel-card dgbt-panel-card-controls">
               <div class="dgbt-panel-card-head">
                 <div>
                   <p class="dgbt-panel-card-eyebrow">Behavior</p>
                   <h2>Threading controls</h2>
+                  <p class="dgbt-panel-card-copy">A compact live sample shows the line, dot, thickness, and motion style.</p>
+                </div>
+              </div>
+              <div class="dgbt-panel-status-strip">
+                <span class="dgbt-panel-pill" data-role="panel-status-text">Threading active</span>
+                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-motion-pill">Drift motion</span>
+                <span class="dgbt-panel-pill dgbt-panel-pill-muted" data-role="panel-width-pill">2px thread width</span>
+              </div>
+              <div class="dgbt-thread-preview" data-role="panel-thread-preview" data-motion="drift" data-accent-mode="solid" data-shape="square">
+                <div class="dgbt-thread-preview-line" aria-hidden="true">
+                  <span class="dgbt-thread-preview-core"></span>
+                  <span class="dgbt-thread-preview-dot"></span>
                 </div>
               </div>
               <label class="dgbt-switch-row">
@@ -519,20 +679,32 @@ function buildPanelMarkup() {
                 <input type="checkbox" data-setting="threadingEnabled">
               </label>
               <section class="dgbt-control-group">
-                <div class="dgbt-control-head">
-                  <strong>Accent color</strong>
-                  <span data-role="panel-accent-label">#1f7ae0</span>
+                <div class="dgbt-control-head dgbt-control-head-accent">
+                  <span data-role="panel-accent-label">${escapeHtml(getAccentSelectionLabel())}</span>
+                </div>
+                <div class="dgbt-accent-palette-group">
+                  <div class="dgbt-accent-palette-label">Preset colors</div>
+                  <div class="dgbt-accent-swatch-grid">
+                    ${buildAccentPresetButtons("preset")}
+                  </div>
+                </div>
+                <div class="dgbt-accent-palette-group">
+                  <div class="dgbt-accent-palette-label">Accent colors</div>
+                  <div class="dgbt-accent-swatch-grid dgbt-accent-swatch-grid-wide">
+                    ${buildAccentPresetButtons("accent")}
+                  </div>
                 </div>
                 <div class="dgbt-color-row">
                   <input class="dgbt-color-input" type="color" data-setting="accentColor">
                   <input class="dgbt-text-input" type="text" inputmode="text" data-setting="accentHex" placeholder="#1f7ae0">
                 </div>
+                <div class="dgbt-control-help">Pick a preset like Degrande Colors, or adjust the custom color inputs to switch back to a custom accent.</div>
               </section>
               <section class="dgbt-control-group">
                 <div class="dgbt-control-head">
                   <strong>Thread width</strong>
                 </div>
-                <div class="dgbt-choice-grid dgbt-choice-grid-compact">
+                <div class="dgbt-choice-row dgbt-choice-row-width">
                   ${THREAD_WIDTH_CHOICES.map((choice) => `
                     <label class="dgbt-choice-pill">
                       <input type="radio" name="dgbt-thread-width" value="${choice}" data-setting="threadWidth">
@@ -545,7 +717,7 @@ function buildPanelMarkup() {
                 <div class="dgbt-control-head">
                   <strong>Motion level</strong>
                 </div>
-                <div class="dgbt-choice-grid">
+                <div class="dgbt-choice-row dgbt-choice-row-motion">
                   ${MOTION_CHOICES.map((choice) => `
                     <button class="dgbt-choice-button" type="button" data-action="set-motion" data-value="${choice}">${choice}</button>
                   `).join("")}
@@ -553,29 +725,16 @@ function buildPanelMarkup() {
               </section>
               <section class="dgbt-control-group">
                 <div class="dgbt-control-head">
-                  <strong>Preview surface</strong>
+                  <strong>Thread shape</strong>
                 </div>
-                <div class="dgbt-choice-grid">
-                  ${SURFACE_CHOICES.map((choice) => `
-                    <button class="dgbt-choice-button" type="button" data-action="set-surface" data-value="${choice}">${choice}</button>
+                <div class="dgbt-choice-row dgbt-choice-row-shape">
+                  ${THREAD_SHAPE_CHOICES.map((choice) => `
+                    <button class="dgbt-choice-button" type="button" data-action="set-thread-shape" data-value="${choice}">${choice}</button>
                   `).join("")}
                 </div>
               </section>
             </article>
-            <article class="dgbt-panel-card dgbt-panel-card-note">
-              <div class="dgbt-panel-card-head">
-                <div>
-                  <p class="dgbt-panel-card-eyebrow">Direction</p>
-                  <h2>What this page controls</h2>
-                </div>
-              </div>
-              <ul class="dgbt-note-list">
-                <li>The overlay follows the selected node and its ancestors only.</li>
-                <li>The preview reflects the same stroke width, accent, and motion settings used in the graph.</li>
-                <li>Plugin settings still persist the values, but this is now the main editing surface.</li>
-              </ul>
-            </article>
-          </aside>
+          </section>
         </div>
       </section>
     </div>
@@ -596,12 +755,20 @@ function syncPanelState() {
   }
 
   if (accentInput) {
-    accentInput.value = state.accentColor;
+    accentInput.value = getResolvedAccentPreviewColor();
   }
 
   if (accentHexInput && accentHexInput !== document.activeElement) {
-    accentHexInput.value = state.accentColor;
+    accentHexInput.value = getResolvedAccentPreviewColor();
   }
+
+  document.querySelectorAll("[data-action='set-accent-preset']").forEach((button) => {
+    button.style.setProperty("--dgbt-swatch-color", getPresetDisplayColor(button.dataset.value));
+    button.classList.toggle(
+      "is-active",
+      state.accentColorMode === "preset" && button.dataset.value === state.accentPresetToken
+    );
+  });
 
   document.querySelectorAll("[data-setting='threadWidth']").forEach((input) => {
     input.checked = input.value === state.threadWidth;
@@ -611,15 +778,15 @@ function syncPanelState() {
     button.classList.toggle("is-active", button.dataset.value === state.motionLevel);
   });
 
-  document.querySelectorAll("[data-action='set-surface']").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.value === state.surfaceStyle);
+  document.querySelectorAll("[data-action='set-thread-shape']").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.value === state.threadShape);
   });
 
   const statusText = document.querySelector("[data-role='panel-status-text']");
   const motionPill = document.querySelector("[data-role='panel-motion-pill']");
   const widthPill = document.querySelector("[data-role='panel-width-pill']");
-  const surfacePill = document.querySelector("[data-role='panel-surface-pill']");
   const accentLabel = document.querySelector("[data-role='panel-accent-label']");
+  const threadPreview = document.querySelector("[data-role='panel-thread-preview']");
 
   if (statusText) {
     statusText.textContent = state.enabled ? "Threading active" : "Threading paused";
@@ -633,15 +800,23 @@ function syncPanelState() {
     widthPill.textContent = `${state.threadWidth} thread width`;
   }
 
-  if (surfacePill) {
-    surfacePill.textContent = `${state.surfaceStyle} surface`;
-  }
-
   if (accentLabel) {
-    accentLabel.textContent = state.accentColor;
+    accentLabel.textContent = getAccentSelectionLabel();
   }
 
-  queueSettingsPreviewRender();
+  document.documentElement.style.setProperty("--dgbt-panel-accent", getResolvedAccentPreviewColor());
+  document.documentElement.style.setProperty("--dgbt-panel-thread-width", state.threadWidth);
+  document.documentElement.style.setProperty("--dgbt-panel-motion-duration", getMotionTiming());
+  getRainbowPaletteColors().forEach((color, index) => {
+    document.documentElement.style.setProperty(`--dgbt-rainbow-${index}`, color);
+  });
+
+  if (threadPreview) {
+    threadPreview.dataset.motion = state.motionLevel.toLowerCase();
+    threadPreview.dataset.accentMode = isRainbowAccentMode() ? "rainbow" : "solid";
+    threadPreview.dataset.shape = getThreadShapeToken();
+    threadPreview.classList.toggle("is-paused", !state.enabled);
+  }
 }
 
 function mountPanel() {
@@ -677,9 +852,16 @@ function mountPanel() {
       return;
     }
 
-    if (action === "set-surface") {
-      setSurfaceStyle(actionTarget.dataset.value);
+    if (action === "set-thread-shape") {
+      setThreadShape(actionTarget.dataset.value);
       syncPanelState();
+      return;
+    }
+
+    if (action === "set-accent-preset") {
+      setAccentPreset(actionTarget.dataset.value);
+      syncPanelState();
+      return;
     }
   });
 
@@ -751,7 +933,6 @@ function openThreadingSettings() {
   logseq.setMainUIInlineStyle(MAIN_UI_INLINE_STYLE);
   logseq.showMainUI({ autoFocus: true });
   syncPanelState();
-  queueSettingsPreviewRender();
 }
 
 function closeThreadingSettings() {
@@ -761,23 +942,41 @@ function closeThreadingSettings() {
 
 function syncThreadingHostState() {
   const hostDocument = getHostDocument();
+  const accentCssValue = getResolvedAccentCssValue();
+  const rainbowCssVariables = getRainbowPaletteColors()
+    .map((color, index) => `      --dgbt-rainbow-${index}: ${color};`)
+    .join("\n");
   const runtimeStyle = `
     :root {
       --dgbt-thread-width: ${state.threadWidth};
-      --dgbt-thread-accent: ${state.accentColor};
-      --dgbt-thread-guideline-color: color-mix(in srgb, ${state.accentColor} 20%, var(--ls-guideline-color, rgba(148, 163, 184, 0.48)));
-      --dgbt-thread-soft-color: color-mix(in srgb, ${state.accentColor} 38%, transparent);
-      --dgbt-thread-active-color: color-mix(in srgb, ${state.accentColor} 86%, white 14%);
-      --dgbt-thread-bullet-color: color-mix(in srgb, ${state.accentColor} 62%, var(--ls-block-bullet-color, rgba(148, 163, 184, 0.84)));
+      --dgbt-thread-accent: ${accentCssValue};
+      --dgbt-thread-guideline-color: color-mix(in srgb, ${accentCssValue} 20%, var(--ls-guideline-color, rgba(148, 163, 184, 0.48)));
+      --dgbt-thread-soft-color: color-mix(in srgb, ${accentCssValue} 38%, transparent);
+      --dgbt-thread-active-color: color-mix(in srgb, ${accentCssValue} 86%, white 14%);
+      --dgbt-thread-bullet-color: color-mix(in srgb, ${accentCssValue} 62%, var(--ls-block-bullet-color, rgba(148, 163, 184, 0.84)));
       --dgbt-thread-motion-duration: ${getMotionTiming()};
+${rainbowCssVariables}
     }
   `;
 
   if (runtimeStyle !== state.lastRuntimeStyleText) {
-    logseq.provideStyle({
-      key: THREADING_STYLE_KEY,
-      style: runtimeStyle,
-    });
+    try {
+      let styleElement = hostDocument.getElementById(RUNTIME_STYLE_ELEMENT_ID);
+
+      if (!styleElement) {
+        styleElement = hostDocument.createElement("style");
+        styleElement.id = RUNTIME_STYLE_ELEMENT_ID;
+        (hostDocument.head || hostDocument.documentElement).appendChild(styleElement);
+      }
+
+      styleElement.textContent = runtimeStyle;
+    } catch (error) {
+      if (typeof logseq.provideStyle === "function") {
+        logseq.provideStyle(runtimeStyle);
+      } else {
+        console.error("[Degrande Bullet Threading] Failed to apply runtime accent style", error);
+      }
+    }
     state.lastRuntimeStyleText = runtimeStyle;
   }
 
@@ -786,6 +985,9 @@ function syncThreadingHostState() {
     hostDocument.body?.classList.toggle(THREADING_STATE_CLASS, state.enabled);
     state.lastEnabledClassState = state.enabled;
   }
+
+  hostDocument.documentElement?.setAttribute("data-dgbt-motion", state.motionLevel.toLowerCase());
+  hostDocument.documentElement?.setAttribute("data-dgbt-thread-shape", getThreadShapeToken());
 }
 
 function updateToolbarUi() {
@@ -838,9 +1040,8 @@ function ensureOverlayRoot() {
     overlayRoot.className = "dgbt-overlay is-hidden";
     overlayRoot.innerHTML = `
       <svg class="dgbt-overlay-svg" aria-hidden="true" focusable="false">
-        <path class="dgbt-overlay-path dgbt-overlay-path-glow"></path>
+        <g class="dgbt-overlay-segments"></g>
         <path class="dgbt-overlay-path dgbt-overlay-path-core"></path>
-        <g class="dgbt-overlay-dots"></g>
       </svg>
     `;
     anchor.appendChild(overlayRoot);
@@ -850,24 +1051,30 @@ function ensureOverlayRoot() {
 
   state.overlayRoot = overlayRoot;
   state.overlaySvg = overlayRoot.querySelector(".dgbt-overlay-svg");
-  state.overlayGlowPath = overlayRoot.querySelector(".dgbt-overlay-path-glow");
+  state.overlaySegments = overlayRoot.querySelector(".dgbt-overlay-segments");
   state.overlayCorePath = overlayRoot.querySelector(".dgbt-overlay-path-core");
-  state.overlayDots = overlayRoot.querySelector(".dgbt-overlay-dots");
+
+  if (!state.overlaySegments && state.overlaySvg) {
+    state.overlaySegments = hostDocument.createElementNS("http://www.w3.org/2000/svg", "g");
+    state.overlaySegments.setAttribute("class", "dgbt-overlay-segments");
+    state.overlaySvg.insertBefore(state.overlaySegments, state.overlayCorePath || null);
+  }
+
   return overlayRoot;
 }
 
 function clearOverlayPath() {
   if (!state.overlayRoot) {
+    clearRainbowBulletStyles();
     return;
   }
 
   state.overlayRoot.classList.add("is-hidden");
-  state.overlayGlowPath?.setAttribute("d", "");
   state.overlayCorePath?.setAttribute("d", "");
-
-  if (state.overlayDots) {
-    state.overlayDots.innerHTML = "";
+  if (state.overlaySegments) {
+    state.overlaySegments.innerHTML = "";
   }
+  clearRainbowBulletStyles();
 }
 
 function findParentBlock(blockElement) {
@@ -936,6 +1143,104 @@ function getBlockBulletElement(blockElement) {
   return null;
 }
 
+function getBlockBulletVisualElement(blockElement) {
+  if (!blockElement || isBlockInProperties(blockElement)) {
+    return null;
+  }
+
+  return blockElement.querySelector(":scope > div > :is(div.items-center, div.block-control-wrap) .bullet")
+    || blockElement.querySelector(".bullet");
+}
+
+function getBlockGuideElement(blockElement) {
+  if (!blockElement || isBlockInProperties(blockElement)) {
+    return null;
+  }
+
+  const selectors = [
+    ":scope > .block-children-container .block-children-left-border",
+    ":scope > .block-children-left-border",
+    ":scope > .block-children-container .block-children",
+    ":scope > .block-children",
+  ];
+
+  for (const selector of selectors) {
+    const candidate = blockElement.querySelector(selector);
+
+    if (candidate && candidate.closest(".ls-block") === blockElement) {
+      return candidate;
+    }
+  }
+
+  const fallbacks = blockElement.querySelectorAll(".block-children, .block-children-left-border");
+  for (const candidate of fallbacks) {
+    if (candidate.closest(".ls-block") === blockElement) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function getGuideXForBlock(blockElement, anchor) {
+  const guideElement = getBlockGuideElement(blockElement);
+
+  if (!guideElement || !anchor) {
+    return null;
+  }
+
+  const rect = guideElement.getBoundingClientRect();
+  const anchorRect = anchor.getBoundingClientRect();
+
+  if (rect.width <= 0 && rect.height <= 0) {
+    return null;
+  }
+
+  const isGuideBorder = guideElement.classList.contains("block-children-left-border");
+  if (isGuideBorder) {
+    return rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2);
+  }
+
+  const hostWindow = getHostWindow();
+  const borderLeftWidth = Number.parseFloat(hostWindow?.getComputedStyle?.(guideElement)?.borderLeftWidth || "1") || 1;
+  return rect.left - anchorRect.left + anchor.scrollLeft + (borderLeftWidth / 2);
+}
+
+function clearRainbowBulletStyles() {
+  state.rainbowBulletElements.forEach((bulletElement) => {
+    if (!bulletElement) {
+      return;
+    }
+
+    bulletElement.style.removeProperty("background-color");
+    bulletElement.style.removeProperty("box-shadow");
+    bulletElement.style.removeProperty("--dgbt-bullet-color");
+    bulletElement.removeAttribute("data-dgbt-thread-bullet");
+  });
+
+  state.rainbowBulletElements = [];
+}
+
+function applyRainbowBulletStyles(blockChain) {
+  clearRainbowBulletStyles();
+
+  blockChain.forEach((blockElement, index) => {
+    const bulletElement = getBlockBulletVisualElement(blockElement);
+
+    if (!bulletElement) {
+      return;
+    }
+
+    const color = isRainbowAccentMode()
+      ? getRainbowSegmentColor(Math.max(0, index - 1))
+      : "var(--dgbt-thread-active-color)";
+    bulletElement.style.backgroundColor = color;
+    bulletElement.style.setProperty("--dgbt-bullet-color", color);
+    bulletElement.setAttribute("data-dgbt-thread-bullet", "true");
+    state.rainbowBulletElements.push(bulletElement);
+  });
+}
+
 function getBlockPathChain(activeBlockElement) {
   const chain = [];
   let currentBlock = activeBlockElement;
@@ -954,6 +1259,7 @@ function getBlockPathChain(activeBlockElement) {
 function getPointForBlock(blockElement) {
   const anchor = state.overlayAnchor || getOverlayAnchorElement();
   const bulletElement = getBlockBulletElement(blockElement);
+  const bulletVisualElement = getBlockBulletVisualElement(blockElement);
 
   if (!bulletElement || !anchor) {
     return null;
@@ -966,10 +1272,98 @@ function getPointForBlock(blockElement) {
     return null;
   }
 
+  const visualRect = bulletVisualElement?.getBoundingClientRect?.();
+  const radiusSource = visualRect && visualRect.width > 0 && visualRect.height > 0
+    ? Math.min(visualRect.width, visualRect.height)
+    : Math.min(rect.width, rect.height);
+  const positionRect = visualRect && visualRect.width > 0 && visualRect.height > 0
+    ? visualRect
+    : rect;
+
   return {
-    x: rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2),
-    y: rect.top - anchorRect.top + anchor.scrollTop + (rect.height / 2),
+    x: positionRect.left - anchorRect.left + anchor.scrollLeft + (positionRect.width / 2),
+    y: positionRect.top - anchorRect.top + anchor.scrollTop + (positionRect.height / 2),
+    radius: Math.max(3, radiusSource / 2),
+    guideX: getGuideXForBlock(blockElement, anchor),
   };
+}
+
+function buildSegmentGeometry(previous, current) {
+  const deltaY = current.y - previous.y;
+  const threadWidthValue = Number.parseFloat(state.threadWidth) || 0;
+  const endpointGap = Math.max(2, threadWidthValue * 0.5);
+  const startEndpointGap = Math.max(0, threadWidthValue * 0.75);
+  const capCompensation = state.threadShape === "Square"
+    ? 0
+    : threadWidthValue / 2;
+  const previousRadius = Math.max(0, Number(previous.radius) || 0) + capCompensation + startEndpointGap;
+  const currentRadius = Math.max(0, Number(current.radius) || 0) + capCompensation + endpointGap;
+  const directionY = deltaY === 0 ? 0 : Math.sign(deltaY);
+  const verticalX = Number.isFinite(previous.guideX) ? previous.guideX : previous.x;
+  const directionFromGuide = current.x === verticalX ? 0 : Math.sign(current.x - verticalX);
+
+  // Start on the guide axis, below the source bullet
+  const startY = previous.y + (directionY * previousRadius);
+  const startPoint = { x: verticalX, y: startY };
+
+  // End above the target bullet (always arrive vertically)
+  const endPoint = { x: current.x, y: current.y - (directionY * currentRadius) };
+
+  // --- Rounded: same L-shape as square but with rounded corner ---
+  if (state.threadShape !== "Square" && directionFromGuide !== 0) {
+    const horizontalOut = Math.abs(current.x - verticalX);
+    const verticalSpan = Math.abs(endPoint.y - startPoint.y);
+
+    if (horizontalOut > 0 && verticalSpan > 0) {
+      const turnY = endPoint.y - (directionY * 6);
+      const r = Math.min(4, horizontalOut, 6); // small rounding radius
+      const cornerEndX = verticalX + (directionFromGuide * r);
+      const cornerStartY = turnY - (directionY * r);
+      // End corner: horizontal→vertical
+      const r2 = Math.min(4, horizontalOut, 6);
+      const corner2StartX = current.x - (directionFromGuide * r2);
+      const corner2EndY = turnY + (directionY * r2);
+
+      return {
+        leadPath: "",
+        bodyPath: [
+        `M ${startPoint.x} ${startPoint.y}`,
+        `L ${verticalX} ${cornerStartY}`,
+        `Q ${verticalX} ${turnY} ${cornerEndX} ${turnY}`,
+        `L ${corner2StartX} ${turnY}`,
+        `Q ${current.x} ${turnY} ${current.x} ${corner2EndY}`,
+        `L ${endPoint.x} ${endPoint.y}`,
+      ].join(" "),
+      };
+    }
+  }
+
+  // --- Square / no offset: straight lines, go down guide then over and down to target ---
+  if (directionFromGuide !== 0) {
+    const turnY = endPoint.y - (directionY * 6);
+    return {
+      leadPath: "",
+      bodyPath: [
+      `M ${startPoint.x} ${startPoint.y}`,
+      `L ${verticalX} ${turnY}`,
+      `L ${current.x} ${turnY}`,
+      `L ${endPoint.x} ${endPoint.y}`,
+    ].join(" "),
+    };
+  }
+
+  return {
+    leadPath: "",
+    bodyPath: [
+    `M ${startPoint.x} ${startPoint.y}`,
+    `L ${endPoint.x} ${endPoint.y}`,
+  ].join(" "),
+  };
+}
+
+function buildSegmentPath(previous, current) {
+  const { leadPath, bodyPath } = buildSegmentGeometry(previous, current);
+  return [leadPath, bodyPath].filter(Boolean).join(" ");
 }
 
 function buildSvgPath(points) {
@@ -984,23 +1378,8 @@ function buildSvgPath(points) {
   let pathData = `M ${points[0].x} ${points[0].y}`;
 
   for (let index = 1; index < points.length; index += 1) {
-    const previous = points[index - 1];
-    const current = points[index];
-    const deltaX = current.x - previous.x;
-    const deltaY = current.y - previous.y;
-    const cornerRadius = Math.max(0, Math.min(12, Math.abs(deltaX), Math.abs(deltaY) / 2));
-
-    if (cornerRadius === 0) {
-      pathData += ` L ${current.x} ${current.y}`;
-      continue;
-    }
-
-    const verticalTarget = current.y - cornerRadius;
-    const cornerEndX = previous.x + (deltaX >= 0 ? cornerRadius : -cornerRadius);
-
-    pathData += ` L ${previous.x} ${verticalTarget}`;
-    pathData += ` Q ${previous.x} ${current.y} ${cornerEndX} ${current.y}`;
-    pathData += ` L ${current.x} ${current.y}`;
+    const segmentPath = buildSegmentPath(points[index - 1], points[index]).replace(/^M [^ ]+ [^ ]+\s*/, "");
+    pathData += ` ${segmentPath}`;
   }
 
   return pathData;
@@ -1025,7 +1404,8 @@ function renderOverlayPath() {
     return;
   }
 
-  const points = getBlockPathChain(activeBlock)
+  const blockChain = getBlockPathChain(activeBlock);
+  const points = blockChain
     .map((blockElement) => getPointForBlock(blockElement))
     .filter(Boolean);
 
@@ -1051,17 +1431,33 @@ function renderOverlayPath() {
   }
 
   state.overlaySvg?.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  state.overlayGlowPath?.setAttribute("d", pathData);
-  state.overlayCorePath?.setAttribute("d", pathData);
+  applyRainbowBulletStyles(blockChain);
 
-  if (state.overlayDots) {
-    state.overlayDots.innerHTML = points
+  if (points.length > 1 && state.overlaySegments) {
+    state.overlayCorePath?.setAttribute("d", "");
+    state.overlaySegments.innerHTML = points
+      .slice(1)
       .map((point, index) => {
-        const radius = index === points.length - 1 ? 5.5 : 4.5;
-        return `<circle class="dgbt-overlay-dot${index === points.length - 1 ? " is-active" : ""}" cx="${point.x}" cy="${point.y}" r="${radius}"></circle>`;
+        const { leadPath, bodyPath } = buildSegmentGeometry(points[index], point);
+        const segmentStroke = isRainbowAccentMode()
+          ? getRainbowSegmentColor(index)
+          : "var(--dgbt-thread-active-color)";
+        return [
+          leadPath
+            ? `<path class="dgbt-overlay-path dgbt-overlay-path-lead" d="${leadPath}" style="stroke:${segmentStroke}"></path>`
+            : "",
+          `<path class="dgbt-overlay-path dgbt-overlay-path-segment" d="${bodyPath}" style="stroke:${segmentStroke}"></path>`,
+        ].join("");
       })
       .join("");
+    return;
   }
+
+  if (state.overlaySegments) {
+    state.overlaySegments.innerHTML = "";
+  }
+
+  state.overlayCorePath?.setAttribute("d", pathData);
 }
 
 function bindHostObservers() {
@@ -1100,7 +1496,13 @@ function bindHostObservers() {
   hostDocument.addEventListener("focusin", queueRender, true);
   hostDocument.addEventListener("pointerup", queueRender, true);
   hostDocument.addEventListener("keyup", queueRender, true);
+  registerCleanup(() => hostDocument.removeEventListener("selectionchange", queueRender, true));
+  registerCleanup(() => hostDocument.removeEventListener("focusin", queueRender, true));
+  registerCleanup(() => hostDocument.removeEventListener("pointerup", queueRender, true));
+  registerCleanup(() => hostDocument.removeEventListener("keyup", queueRender, true));
+
   hostWindow.addEventListener("resize", queueRender);
+  registerCleanup(() => hostWindow.removeEventListener("resize", queueRender));
 }
 
 function updatePagebarUi() {
@@ -1110,9 +1512,10 @@ function updatePagebarUi() {
     return;
   }
 
-  root.style.setProperty("--dgbt-accent", state.accentColor);
+  root.style.setProperty("--dgbt-accent", getResolvedAccentCssValue());
   root.dataset.motion = state.motionLevel.toLowerCase();
-  root.dataset.surface = state.surfaceStyle.toLowerCase();
+  root.dataset.accentMode = isRainbowAccentMode() ? "rainbow" : "solid";
+  root.dataset.shape = getThreadShapeToken();
   root.classList.toggle("is-paused", !state.enabled);
 
   const status = root.querySelector('[data-role="status-text"]');
@@ -1123,7 +1526,7 @@ function updatePagebarUi() {
   }
 
   if (motion) {
-    motion.textContent = `${state.motionLevel} motion · ${state.threadWidth} · ${state.surfaceStyle}`;
+    motion.textContent = `${state.motionLevel} motion · ${state.threadWidth}`;
   }
 }
 
@@ -1179,21 +1582,21 @@ function registerCommands(pluginId) {
 
 function bindAppEvents() {
   if (typeof logseq.App.onRouteChanged === "function") {
-    logseq.App.onRouteChanged(() => {
+    const disposeRouteChanged = logseq.App.onRouteChanged(() => {
       queueRender();
     });
+    registerCleanup(disposeRouteChanged);
   }
 
   if (typeof logseq.App.onThemeModeChanged === "function") {
-    logseq.App.onThemeModeChanged(() => {
+    const disposeThemeModeChanged = logseq.App.onThemeModeChanged(() => {
       queueRender();
     });
+    registerCleanup(disposeThemeModeChanged);
   }
 }
 
 async function main() {
-  console.info(`[Degrande Bullet Threading] Starting v${PLUGIN_VERSION}`);
-
   const isDbGraph = typeof logseq.App.checkCurrentIsDbGraph === "function"
     ? await logseq.App.checkCurrentIsDbGraph()
     : false;
@@ -1248,4 +1651,5 @@ async function main() {
 }
 
 window.__degrandeBulletThreadingMain = main;
+window[CLEANUP_REGISTRY_KEY] = cleanupPluginRuntime;
 })();
