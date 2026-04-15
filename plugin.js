@@ -1,5 +1,5 @@
 const STARTUP_ERROR_PREFIX = "[Degrande Bullet Threading] Failed to start";
-const FALLBACK_PLUGIN_VERSION = "0.3.2";
+const FALLBACK_PLUGIN_VERSION = "0.3.3";
 const MAIN_SCRIPT_DATA_ATTRIBUTE = "data-degrande-bullet-threading-main";
 
 let pluginStartupPromise = null;

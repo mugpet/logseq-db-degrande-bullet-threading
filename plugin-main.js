@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.2";
+const FALLBACK_PLUGIN_VERSION = "0.3.3";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -62,13 +62,17 @@ const MOTION_CHOICES = [
 const THREAD_SHAPE_CHOICES = [
   "Square",
   "Rounded",
+  "Extra Rounded",
 ];
 
 const THREAD_END_CHOICES = [
   "Top",
   "Side",
+  "Original",
   "Bouble",
 ];
+
+const THREAD_END_SETTING_CHOICES = THREAD_END_CHOICES.filter((choice) => choice !== "Bouble");
 
 const THREAD_WIDTH_CHOICES = [
   "1px",
@@ -136,7 +140,7 @@ const SETTINGS_SCHEMA = [
     type: "enum",
     title: "Accent source",
     description: "Internal selection mode for the accent color.",
-    default: "custom",
+    default: "preset",
     enumChoices: ["custom", "preset"],
     enumPicker: "select",
   },
@@ -145,14 +149,14 @@ const SETTINGS_SCHEMA = [
     type: "string",
     title: "Accent preset token",
     description: "Internal preset token for the selected accent color.",
-    default: "blue",
+    default: "acc-rainbow",
   },
   {
     key: "threadWidth",
     type: "enum",
     title: "Thread width",
     description: "Width of the bullet threading path.",
-    default: "2px",
+    default: "3px",
     enumChoices: THREAD_WIDTH_CHOICES,
     enumPicker: "radio",
   },
@@ -161,7 +165,7 @@ const SETTINGS_SCHEMA = [
     type: "enum",
     title: "Motion level",
     description: "How lively the threading preview should feel while we build it out.",
-    default: "Drift",
+    default: "Still",
     enumChoices: MOTION_CHOICES,
     enumPicker: "select",
   },
@@ -169,8 +173,8 @@ const SETTINGS_SCHEMA = [
     key: "threadShape",
     type: "enum",
     title: "Thread shape",
-    description: "Choose between square bends or rounded bends.",
-    default: "Square",
+    description: "Choose between square bends, rounded bends, or extra-rounded bends (Original end only).",
+    default: "Rounded",
     enumChoices: THREAD_SHAPE_CHOICES,
     enumPicker: "select",
   },
@@ -178,22 +182,22 @@ const SETTINGS_SCHEMA = [
     key: "threadEnd",
     type: "enum",
     title: "Thread end",
-    description: "Where the thread meets the target bullet: above it, beside it, or wrapped in a bouble.",
-    default: "Side",
-    enumChoices: THREAD_END_CHOICES,
+    description: "Where the thread meets the target bullet: above it, beside it (short stub), or to the dot edge (original).",
+    default: "Original",
+    enumChoices: THREAD_END_SETTING_CHOICES,
     enumPicker: "select",
   },
 ];
 
 const state = {
   enabled: true,
-  accentColorMode: "custom",
-  accentPresetToken: "blue",
+  accentColorMode: "preset",
+  accentPresetToken: "acc-rainbow",
   accentColor: "#1f7ae0",
-  threadWidth: "2px",
-  motionLevel: "Drift",
-  threadShape: "Square",
-  threadEnd: "Side",
+  threadWidth: "3px",
+  motionLevel: "Still",
+  threadShape: "Rounded",
+  threadEnd: "Original",
   renderTimer: null,
   isDbGraph: false,
   overlayAnchor: null,
@@ -201,6 +205,10 @@ const state = {
   overlaySvg: null,
   overlaySegments: null,
   overlayCorePath: null,
+  collapseLayer: null,
+  collapseBlockRefs: [],
+  collapseHoverCleanups: [],
+  collapseVisibleIndex: -1,
   rainbowBulletElements: [],
   hostObserver: null,
   cleanupFns: [],
@@ -242,12 +250,15 @@ function cleanupPluginRuntime() {
     state.renderTimer = null;
   }
 
+  cleanupCollapseHoverListeners();
   clearRainbowBulletStyles();
   state.overlayRoot?.remove?.();
   state.overlayRoot = null;
   state.overlaySvg = null;
   state.overlaySegments = null;
   state.overlayCorePath = null;
+  state.collapseLayer = null;
+  state.collapseBlockRefs = [];
   state.overlayAnchor?.classList?.remove?.(OVERLAY_ANCHOR_CLASS);
   state.overlayAnchor = null;
 }
@@ -334,6 +345,15 @@ function getResolvedAccentCssValue() {
   }
 
   if (state.accentColorMode === "preset") {
+    // For Logseq Accent, return the raw CSS variable so it stays dynamic in the host document.
+    if (state.accentPresetToken === "acc-app-accent") {
+      const preset = getAccentPreset("acc-app-accent");
+
+      if (preset?.cssValue) {
+        return preset.cssValue;
+      }
+    }
+
     return getPresetDisplayColor(state.accentPresetToken) || state.accentColor;
   }
 
@@ -420,19 +440,19 @@ function applyPluginSettings(settings) {
   state.accentColorMode = settings?.accentColorMode === "preset" && getAccentPreset(settings?.accentPresetToken)
     ? "preset"
     : "custom";
-  state.accentPresetToken = getAccentPreset(settings?.accentPresetToken)?.token || "blue";
-  state.threadWidth = THREAD_WIDTH_CHOICES.includes(settings?.threadWidth) ? settings.threadWidth : "2px";
+  state.accentPresetToken = getAccentPreset(settings?.accentPresetToken)?.token || "acc-rainbow";
+  state.threadWidth = THREAD_WIDTH_CHOICES.includes(settings?.threadWidth) ? settings.threadWidth : "3px";
   state.motionLevel = normalizeMotionLevel(settings?.motionLevel);
   state.threadShape = normalizeThreadShape(settings?.threadShape);
   state.threadEnd = normalizeThreadEnd(settings?.threadEnd);
 }
 
 function normalizeMotionLevel(nextValue) {
-  return MOTION_CHOICES.includes(nextValue) ? nextValue : "Drift";
+  return MOTION_CHOICES.includes(nextValue) ? nextValue : "Still";
 }
 
 function normalizeThreadShape(nextValue) {
-  return THREAD_SHAPE_CHOICES.includes(nextValue) ? nextValue : "Square";
+  return THREAD_SHAPE_CHOICES.includes(nextValue) ? nextValue : "Rounded";
 }
 
 function normalizeThreadEnd(nextValue) {
@@ -440,7 +460,7 @@ function normalizeThreadEnd(nextValue) {
     return "Bouble";
   }
 
-  return THREAD_END_CHOICES.includes(nextValue) ? nextValue : "Side";
+  return THREAD_END_CHOICES.includes(nextValue) ? nextValue : "Original";
 }
 
 function getThreadEndToken(value = state.threadEnd) {
@@ -626,7 +646,7 @@ function setAccentPreset(nextToken) {
 }
 
 function setThreadWidth(nextValue) {
-  const normalized = THREAD_WIDTH_CHOICES.includes(nextValue) ? nextValue : "2px";
+  const normalized = THREAD_WIDTH_CHOICES.includes(nextValue) ? nextValue : "3px";
   state.threadWidth = normalized;
   persistPluginSetting({ threadWidth: normalized });
   queueRender();
@@ -691,14 +711,14 @@ function buildPanelMarkup() {
         <div class="dgbt-panel-main">
           <section class="dgbt-panel-controls-column">
             <article class="dgbt-panel-card dgbt-panel-card-controls">
-              <label class="dgbt-switch-row">
+              <label class="dgbt-switch-row dgbt-switch-row-compact">
                 <div>
                   <strong>Enable active-path threading</strong>
                   <p>Turns the active route overlay on or off.</p>
                 </div>
                 <input type="checkbox" data-setting="threadingEnabled">
               </label>
-              <section class="dgbt-control-group">
+              <section class="dgbt-control-group dgbt-control-group-tight">
                 <div class="dgbt-control-head dgbt-control-head-accent">
                   <span data-role="panel-accent-label">${escapeHtml(getAccentSelectionLabel())}</span>
                 </div>
@@ -749,7 +769,7 @@ function buildPanelMarkup() {
                 </div>
                 <div class="dgbt-choice-row dgbt-choice-row-shape">
                   ${THREAD_SHAPE_CHOICES.map((choice) => `
-                    <button class="dgbt-choice-button" type="button" data-action="set-thread-shape" data-value="${choice}">${choice}</button>
+                    <button class="dgbt-choice-button${choice === "Extra Rounded" ? " dgbt-extra-rounded-only" : ""}" type="button" data-action="set-thread-shape" data-value="${choice}">${choice === "Extra Rounded" ? "Extra" : choice}</button>
                   `).join("")}
                 </div>
               </section>
@@ -758,7 +778,7 @@ function buildPanelMarkup() {
                   <strong>Thread end</strong>
                 </div>
                 <div class="dgbt-choice-row dgbt-choice-row-end">
-                  ${THREAD_END_CHOICES.map((choice) => `
+                  ${THREAD_END_SETTING_CHOICES.map((choice) => `
                     <button class="dgbt-choice-button" type="button" data-action="set-thread-end" data-value="${choice}">${choice}</button>
                   `).join("")}
                 </div>
@@ -808,9 +828,17 @@ function syncPanelState() {
     button.classList.toggle("is-active", button.dataset.value === state.motionLevel);
   });
 
+  const isOriginalEnd = state.threadEnd === "Original";
   document.querySelectorAll("[data-action='set-thread-shape']").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.value === state.threadShape);
+    if (button.classList.contains("dgbt-extra-rounded-only")) {
+      button.style.display = isOriginalEnd ? "" : "none";
+    }
   });
+  const shapeRow = document.querySelector(".dgbt-choice-row-shape");
+  if (shapeRow) {
+    shapeRow.classList.toggle("dgbt-choice-row-shape-3", isOriginalEnd);
+  }
 
   document.querySelectorAll("[data-action='set-thread-end']").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.value === state.threadEnd);
@@ -895,6 +923,9 @@ function mountPanel() {
 
     if (action === "set-thread-end") {
       setThreadEnd(actionTarget.dataset.value);
+      if (state.threadEnd !== "Original" && state.threadShape === "Extra Rounded") {
+        setThreadShape("Rounded");
+      }
       syncPanelState();
       return;
     }
@@ -998,6 +1029,38 @@ function syncThreadingHostState() {
       --dgbt-thread-motion-duration: ${getMotionTiming()};
 ${rainbowCssVariables}
     }
+    .dgbt-collapse-btn {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      color: white;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+      transition: opacity 150ms ease, transform 120ms ease;
+    }
+    .dgbt-collapse-btn.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .dgbt-collapse-btn.is-visible:hover {
+      transform: scale(1.15);
+    }
+    .dgbt-collapse-btn svg {
+      transition: transform 180ms ease;
+      transform: rotate(0deg);
+      transform-origin: 50% 50%;
+    }
+    .dgbt-collapse-btn.is-expanded svg {
+      transform: rotate(90deg);
+    }
+    .dgbt-overlay.is-hidden .dgbt-collapse-btn {
+      display: none;
+    }
   `;
 
   if (runtimeStyle !== state.lastRuntimeStyleText) {
@@ -1084,6 +1147,7 @@ function ensureOverlayRoot() {
         <g class="dgbt-overlay-segments"></g>
         <path class="dgbt-overlay-path dgbt-overlay-path-core"></path>
       </svg>
+      <div class="dgbt-collapse-layer"></div>
     `;
     anchor.appendChild(overlayRoot);
   } else if (overlayRoot.parentElement !== anchor) {
@@ -1094,6 +1158,16 @@ function ensureOverlayRoot() {
   state.overlaySvg = overlayRoot.querySelector(".dgbt-overlay-svg");
   state.overlaySegments = overlayRoot.querySelector(".dgbt-overlay-segments");
   state.overlayCorePath = overlayRoot.querySelector(".dgbt-overlay-path-core");
+  state.collapseLayer = overlayRoot.querySelector(".dgbt-collapse-layer");
+
+  if (state.collapseLayer && !state.collapseLayer._dgbtBound) {
+    state.collapseLayer.addEventListener("click", handleCollapseLayerClick, true);
+    state.collapseLayer.addEventListener("mousedown", handleCollapseLayerPointerBlock, true);
+    state.collapseLayer.addEventListener("pointerdown", handleCollapseLayerPointerBlock, true);
+    state.collapseLayer.addEventListener("pointerup", handleCollapseLayerPointerBlock, true);
+    state.collapseLayer.addEventListener("mouseup", handleCollapseLayerPointerBlock, true);
+    state.collapseLayer._dgbtBound = true;
+  }
 
   if (!state.overlaySegments && state.overlaySvg) {
     state.overlaySegments = hostDocument.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -1115,6 +1189,12 @@ function clearOverlayPath() {
   if (state.overlaySegments) {
     state.overlaySegments.innerHTML = "";
   }
+  cleanupCollapseHoverListeners();
+  if (state.collapseLayer) {
+    state.collapseLayer.innerHTML = "";
+  }
+  state.collapseBlockRefs = [];
+  state.collapseButtonMap = {};
   clearRainbowBulletStyles();
 }
 
@@ -1189,8 +1269,94 @@ function getBlockControlElement(blockElement) {
     return null;
   }
 
-  return blockElement.querySelector(":scope > div > :is(div.items-center, div.block-control-wrap)")
-    || blockElement.querySelector("div.items-center, div.block-control-wrap");
+  for (const child of Array.from(blockElement.children || [])) {
+    if (child.matches?.("div.items-center, div.block-control-wrap")) {
+      return child;
+    }
+
+    const nestedControl = child.querySelector?.(":scope > :is(div.items-center, div.block-control-wrap)");
+
+    if (nestedControl) {
+      return nestedControl;
+    }
+  }
+
+  return null;
+}
+
+function getOwnBlockChildrenContainer(blockElement) {
+  if (!blockElement) {
+    return null;
+  }
+
+  for (const child of Array.from(blockElement.children || [])) {
+    if (child.classList?.contains("block-children")) {
+      return child;
+    }
+
+    const nestedChildren = child.querySelector?.(":scope > .block-children");
+
+    if (nestedChildren) {
+      return nestedChildren;
+    }
+  }
+
+  return null;
+}
+
+function getNativeCollapseState(blockElement) {
+  if (!blockElement) {
+    return {
+      isCollapsible: false,
+      isCollapsed: false,
+    };
+  }
+
+  const controlElement = getBlockControlElement(blockElement);
+  const childContainer = getOwnBlockChildrenContainer(blockElement);
+  const hasChildAttribute = blockElement.getAttribute("haschild") === "true";
+  const hasNoChildAttribute = blockElement.getAttribute("haschild") === "false";
+  const hasExpandedChildren = hasChildAttribute || Boolean(childContainer && childContainer.childElementCount > 0);
+  const bulletWrap = controlElement?.querySelector(".bullet-link-wrap");
+  const bulletState = bulletWrap?.getAttribute("data-state") || "";
+  const hasNotCollapsedArrow = Boolean(controlElement?.querySelector(".rotating-arrow.not-collapsed"));
+  const hasCollapsedArrow = Boolean(controlElement?.querySelector(".rotating-arrow.collapsed"));
+  const hasClosedBullet = Boolean(controlElement?.querySelector(".bullet-container.bullet-closed, .bullet-closed"));
+  const hasClosedMarker = Boolean(bulletWrap && bulletState === "closed" && !hasNotCollapsedArrow);
+
+  if (hasCollapsedArrow || hasClosedBullet || hasClosedMarker) {
+    return {
+      isCollapsible: true,
+      isCollapsed: true,
+    };
+  }
+
+  if (hasExpandedChildren) {
+    return {
+      isCollapsible: true,
+      isCollapsed: false,
+    };
+  }
+
+  if (hasNoChildAttribute) {
+    return {
+      isCollapsible: false,
+      isCollapsed: false,
+    };
+  }
+
+  return {
+    isCollapsible: false,
+    isCollapsed: false,
+  };
+}
+
+function isBlockCollapsible(blockElement) {
+  return getNativeCollapseState(blockElement).isCollapsible;
+}
+
+function isBlockCurrentlyCollapsed(blockElement) {
+  return getNativeCollapseState(blockElement).isCollapsed;
 }
 
 function getBlockCollapseControlElement(blockElement) {
@@ -1198,8 +1364,17 @@ function getBlockCollapseControlElement(blockElement) {
     return null;
   }
 
-  return blockElement.querySelector(":scope > div > :is(div.items-center, div.block-control-wrap) .block-control")
-    || blockElement.querySelector(".block-control");
+  const controlElement = getBlockControlElement(blockElement);
+
+  if (!controlElement) {
+    return null;
+  }
+
+  if (controlElement.classList?.contains("block-control")) {
+    return controlElement;
+  }
+
+  return controlElement.querySelector(".block-control");
 }
 
 function getBlockBulletVisualElement(blockElement) {
@@ -1257,16 +1432,23 @@ function getGuideXForBlock(blockElement, anchor) {
 
   const isGuideBorder = guideElement.classList.contains("block-children-left-border");
   if (isGuideBorder) {
-    return Math.round(rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2));
+    return rect.left - anchorRect.left + anchor.scrollLeft + (rect.width / 2);
   }
 
   const hostWindow = getHostWindow();
   const borderLeftWidth = Number.parseFloat(hostWindow?.getComputedStyle?.(guideElement)?.borderLeftWidth || "1") || 1;
-  return Math.round(rect.left - anchorRect.left + anchor.scrollLeft + (borderLeftWidth / 2));
+  return rect.left - anchorRect.left + anchor.scrollLeft + (borderLeftWidth / 2);
 }
 
 function clearRainbowBulletStyles() {
-  state.rainbowBulletElements.forEach((bulletElement) => {
+  const hostDocument = getHostDocument();
+  const knownBullets = new Set(state.rainbowBulletElements);
+
+  hostDocument.querySelectorAll?.('.bullet[data-dgbt-thread-bullet="true"]').forEach((bulletElement) => {
+    knownBullets.add(bulletElement);
+  });
+
+  knownBullets.forEach((bulletElement) => {
     if (!bulletElement) {
       return;
     }
@@ -1282,22 +1464,6 @@ function clearRainbowBulletStyles() {
 
 function applyRainbowBulletStyles(blockChain) {
   clearRainbowBulletStyles();
-
-  blockChain.forEach((blockElement, index) => {
-    const bulletElement = getBlockBulletVisualElement(blockElement);
-
-    if (!bulletElement) {
-      return;
-    }
-
-    const color = isRainbowAccentMode()
-      ? getRainbowSegmentColor(Math.max(0, index - 1))
-      : "var(--dgbt-thread-active-color)";
-    bulletElement.style.backgroundColor = color;
-    bulletElement.style.setProperty("--dgbt-bullet-color", color);
-    bulletElement.setAttribute("data-dgbt-thread-bullet", "true");
-    state.rainbowBulletElements.push(bulletElement);
-  });
 }
 
 function getBlockPathChain(activeBlockElement) {
@@ -1412,7 +1578,7 @@ function getPointForBlock(blockElement) {
 
   return {
     x: positionRect.left - anchorRect.left + anchor.scrollLeft + (positionRect.width / 2),
-    y: positionRect.top - anchorRect.top + anchor.scrollTop + (positionRect.height / 2),
+    y: positionRect.top - anchorRect.top + anchor.scrollTop + (positionRect.height / 2) - 1,
     radius: Math.max(3, radiusSource / 2),
     guideX: getGuideXForBlock(blockElement, anchor),
     endBox,
@@ -1424,18 +1590,22 @@ function buildSegmentGeometry(previous, current) {
   const threadWidthValue = Number.parseFloat(state.threadWidth) || 0;
   const endpointGap = Math.max(2, threadWidthValue * 0.5);
   const startEndpointGap = Math.max(0, threadWidthValue * 0.75);
-  const capCompensation = state.threadShape === "Square"
-    ? 0
-    : threadWidthValue / 2;
+  const isRounded = state.threadShape === "Rounded" || state.threadShape === "Extra Rounded";
+  const capCompensation = isRounded
+    ? threadWidthValue / 2
+    : 0;
   const previousRadius = Math.max(0, Number(previous.radius) || 0) + capCompensation + startEndpointGap;
   const currentRadius = Math.max(0, Number(current.radius) || 0) + capCompensation + endpointGap;
   const directionY = deltaY === 0 ? 0 : Math.sign(deltaY);
   const verticalX = Number.isFinite(previous.guideX) ? previous.guideX : previous.x;
   const directionFromGuide = current.x === verticalX ? 0 : Math.sign(current.x - verticalX);
-  const endMode = state.threadEnd; // "Top", "Side", or "Bouble"
+  const endMode = state.threadEnd; // "Top", "Side", "Original", or "Bouble"
 
   // Start on the guide axis, below the source bullet
-  const startY = previous.y + (directionY * previousRadius) + 4;
+  const rawPreviousRadius = Math.max(0, Number(previous.radius) || 0);
+  const startY = endMode === "Original"
+    ? previous.y + (directionY * (rawPreviousRadius + 1))
+    : previous.y + (directionY * previousRadius) + 4;
   const startPoint = { x: verticalX, y: startY };
 
   if (endMode === "Bouble" && current.endBox) {
@@ -1446,14 +1616,14 @@ function buildSegmentGeometry(previous, current) {
     const horizontalOut = Math.abs(boxLeft - verticalX);
     const entryY = Math.max(boxTop, Math.min(current.y, boxBottom));
     const verticalSpan = Math.abs(entryY - startPoint.y);
-    const boxRadius = state.threadShape === "Rounded"
+    const boxRadius = isRounded
       ? Math.min(8, (boxRight - boxLeft) / 2, (boxBottom - boxTop) / 2)
       : 0;
     const connector = [
       `M ${startPoint.x} ${startPoint.y}`,
     ];
 
-    if (state.threadShape === "Rounded" && horizontalOut > 0 && verticalSpan > 0) {
+    if (isRounded && horizontalOut > 0 && verticalSpan > 0) {
       const r = Math.min(4, horizontalOut, verticalSpan);
       const cornerEndX = verticalX + (Math.sign(boxLeft - verticalX) * r);
       const cornerStartY = entryY - (directionY * r);
@@ -1490,22 +1660,28 @@ function buildSegmentGeometry(previous, current) {
     };
   }
 
-  // --- Side mode: end beside the target bullet (short 6px stub) ---
-  if (endMode === "Side" && directionFromGuide !== 0) {
-    const sideStub = 7;
+  // --- Side / Original mode: end beside the target bullet ---
+  if ((endMode === "Side" || endMode === "Original") && directionFromGuide !== 0) {
+    const sideStub = endMode === "Original"
+      ? Math.abs(current.x - verticalX) - Math.max(0, Number(current.radius) || 0) - 2
+      : 7;
     const endSide = {
-      x: verticalX + (directionFromGuide * sideStub),
+      x: verticalX + (directionFromGuide * Math.max(1, sideStub)),
       y: current.y,
     };
 
-    if (state.threadShape === "Rounded") {
+    if (isRounded) {
       const horizontalOut = Math.abs(endSide.x - verticalX);
       const verticalSpan = Math.abs(endSide.y - startPoint.y);
 
       if (horizontalOut > 0 && verticalSpan > 0) {
-        const r = Math.min(4, horizontalOut, verticalSpan);
-        const cornerEndX = verticalX + (directionFromGuide * r);
-        const cornerStartY = current.y - (directionY * r);
+        const isExtra = state.threadShape === "Extra Rounded";
+        let rLower = isExtra ? Math.min(16, horizontalOut) : Math.min(4, horizontalOut, verticalSpan);
+        if (isExtra && rLower * 2 > verticalSpan) {
+          rLower = verticalSpan / 2;
+        }
+        const cornerEndX = verticalX + (directionFromGuide * rLower);
+        const cornerStartY = current.y - (directionY * rLower);
 
         return {
           leadPath: "",
@@ -1519,7 +1695,7 @@ function buildSegmentGeometry(previous, current) {
       }
     }
 
-    // Square side
+    // Square side / original
     return {
       leadPath: "",
       bodyPath: [
@@ -1534,18 +1710,24 @@ function buildSegmentGeometry(previous, current) {
   const endPoint = { x: current.x, y: current.y - (directionY * currentRadius) };
 
   if (directionFromGuide !== 0) {
-    if (state.threadShape === "Rounded") {
+    if (isRounded) {
       const horizontalOut = Math.abs(current.x - verticalX);
       const verticalSpan = Math.abs(endPoint.y - startPoint.y);
 
       if (horizontalOut > 0 && verticalSpan > 0) {
+        const isExtra = state.threadShape === "Extra Rounded";
         const turnY = endPoint.y - (directionY * 6);
-        const r = Math.min(4, horizontalOut, 6);
-        const cornerEndX = verticalX + (directionFromGuide * r);
-        const cornerStartY = turnY - (directionY * r);
-        const r2 = Math.min(4, horizontalOut, 6);
-        const corner2StartX = current.x - (directionFromGuide * r2);
-        const corner2EndY = turnY + (directionY * r2);
+        let rUpper = isExtra ? Math.min(16, horizontalOut) : Math.min(4, horizontalOut, 6);
+        let rLower = isExtra ? Math.min(16, horizontalOut) : Math.min(4, horizontalOut, 6);
+        if (isExtra && rUpper + rLower > Math.abs(endPoint.y - startPoint.y)) {
+          const scale = Math.abs(endPoint.y - startPoint.y) / (rUpper + rLower);
+          rUpper *= scale;
+          rLower *= scale;
+        }
+        const cornerEndX = verticalX + (directionFromGuide * rUpper);
+        const cornerStartY = turnY - (directionY * rUpper);
+        const corner2StartX = current.x - (directionFromGuide * rLower);
+        const corner2EndY = turnY + (directionY * rLower);
 
         return {
           leadPath: "",
@@ -1577,6 +1759,8 @@ function buildSegmentGeometry(previous, current) {
   // Straight (no horizontal offset)
   const straightEnd = endMode === "Side"
     ? { x: current.x, y: current.y - (directionY * currentRadius) }
+    : endMode === "Original"
+    ? { x: current.x, y: current.y - (directionY * (Math.max(0, Number(current.radius) || 0) + 2)) }
     : endPoint;
   return {
     leadPath: "",
@@ -1609,6 +1793,247 @@ function buildSvgPath(points) {
   }
 
   return pathData;
+}
+
+function cleanupCollapseHoverListeners() {
+  for (const fn of state.collapseHoverCleanups) {
+    try { fn(); } catch (_) { /* ignore */ }
+  }
+
+  state.collapseHoverCleanups = [];
+  state.collapseVisibleIndex = -1;
+}
+
+function showCollapseButton(index) {
+  if (index === state.collapseVisibleIndex) {
+    return;
+  }
+
+  if (state.collapseVisibleIndex >= 0) {
+    state.collapseLayer?.querySelector(`[data-collapse-index="${state.collapseVisibleIndex}"]`)?.classList.remove("is-visible");
+  }
+
+  state.collapseVisibleIndex = index;
+
+  if (index >= 0) {
+    state.collapseLayer?.querySelector(`[data-collapse-index="${index}"]`)?.classList.add("is-visible");
+  }
+}
+
+function ensureCollapseHoverListener() {
+  if (state._collapseHoverBound) {
+    return;
+  }
+
+  const hostDocument = getHostDocument();
+
+  if (!hostDocument) {
+    return;
+  }
+
+  let hideTimer = null;
+
+  const scheduleHide = () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+    }
+
+    hideTimer = setTimeout(() => {
+      showCollapseButton(-1);
+      hideTimer = null;
+    }, 120);
+  };
+
+  const onPointerMove = (event) => {
+    if (!state.collapseBlockRefs?.length) {
+      showCollapseButton(-1);
+      return;
+    }
+
+    const target = event.target;
+    const btn = target?.closest?.(".dgbt-collapse-btn");
+
+    if (btn) {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+
+      showCollapseButton(Number(btn.dataset.collapseIndex));
+      return;
+    }
+
+    const hoveredBlock = target?.closest?.(".ls-block");
+
+    if (!hoveredBlock) {
+      scheduleHide();
+      return;
+    }
+
+    let check = hoveredBlock;
+
+    while (check) {
+      const idx = state.collapseBlockRefs.findIndex((ref) => ref.blockElement === check);
+
+      if (idx >= 0) {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+
+        showCollapseButton(idx);
+        return;
+      }
+
+      check = check.parentElement?.closest?.(".ls-block");
+    }
+
+    scheduleHide();
+  };
+
+  hostDocument.addEventListener("pointermove", onPointerMove, { passive: true });
+  state._collapseHoverBound = true;
+
+  state.collapseHoverCleanups.push(() => {
+    hostDocument.removeEventListener("pointermove", onPointerMove);
+    state._collapseHoverBound = false;
+
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+    }
+  });
+}
+
+function renderCollapseButtons(blockChain) {
+  const layer = state.collapseLayer;
+
+  if (!layer) {
+    return;
+  }
+
+  const anchor = state.overlayAnchor || getOverlayAnchorElement();
+
+  if (!anchor) {
+    layer.innerHTML = "";
+    state.collapseBlockRefs = [];
+    state.collapseButtonMap = {};
+    return;
+  }
+
+  const hostDoc = getHostDocument();
+  const anchorRect = anchor.getBoundingClientRect();
+  const refs = [];
+  const isSquare = state.threadShape === "Square";
+  const borderRadius = isSquare ? "2px" : "50%";
+  const usedBlockIds = new Set();
+
+  if (!state.collapseButtonMap) {
+    state.collapseButtonMap = {};
+  }
+
+  for (let i = 0; i < blockChain.length; i++) {
+    const blockElement = blockChain[i];
+
+    if (!isBlockCollapsible(blockElement)) {
+      continue;
+    }
+
+    const collapseControl = getBlockCollapseControlElement(blockElement);
+
+    if (!collapseControl) {
+      continue;
+    }
+
+    const controlRect = collapseControl.getBoundingClientRect();
+
+    if (controlRect.width <= 0 || controlRect.height <= 0) {
+      continue;
+    }
+
+    const blockId = blockElement.getAttribute("blockid") || "";
+    const left = controlRect.left - anchorRect.left + anchor.scrollLeft + 3;
+    const top = controlRect.top - anchorRect.top + anchor.scrollTop + 1;
+    const width = controlRect.width - 6;
+    const height = controlRect.height - 6;
+    const isCollapsed = isBlockCurrentlyCollapsed(blockElement);
+    const arrowLabel = isCollapsed ? "Expand" : "Collapse";
+    const bgColor = isRainbowAccentMode()
+      ? getRainbowSegmentColor(Math.max(0, i - 1))
+      : "var(--dgbt-thread-active-color)";
+    const refIndex = refs.length;
+
+    refs.push({ blockElement, collapseControl, blockId });
+    usedBlockIds.add(blockId);
+
+    let button = state.collapseButtonMap[blockId];
+
+    if (!button || !button.parentNode) {
+      button = hostDoc.createElement("button");
+      button.className = "dgbt-collapse-btn";
+      const svg = hostDoc.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 16 16");
+      svg.setAttribute("width", "12");
+      svg.setAttribute("height", "12");
+      const path = hostDoc.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M 5 3 L 11 8 L 5 13 Z");
+      path.setAttribute("fill", "currentColor");
+      svg.appendChild(path);
+      button.appendChild(svg);
+      layer.appendChild(button);
+      state.collapseButtonMap[blockId] = button;
+    }
+
+    button.dataset.collapseIndex = String(refIndex);
+    button.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px;background:${bgColor};border-radius:${borderRadius}`;
+    button.setAttribute("aria-label", arrowLabel);
+    button.setAttribute("title", arrowLabel);
+    button.classList.toggle("is-expanded", !isCollapsed);
+  }
+
+  // Remove stale buttons that no longer match a block in the chain.
+  for (const [bid, btn] of Object.entries(state.collapseButtonMap)) {
+    if (!usedBlockIds.has(bid)) {
+      btn.remove();
+      delete state.collapseButtonMap[bid];
+    }
+  }
+
+  state.collapseBlockRefs = refs;
+  ensureCollapseHoverListener();
+
+  if (state.collapseVisibleIndex >= 0 && state.collapseVisibleIndex < refs.length) {
+    const visBtn = layer.querySelector(`[data-collapse-index="${state.collapseVisibleIndex}"]`);
+    if (visBtn) visBtn.classList.add("is-visible");
+  }
+}
+
+function handleCollapseLayerPointerBlock(event) {
+  if (event.target.closest(".dgbt-collapse-btn")) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
+function handleCollapseLayerClick(event) {
+  const button = event.target.closest(".dgbt-collapse-btn");
+
+  if (!button) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const index = Number(button.dataset.collapseIndex);
+  const ref = state.collapseBlockRefs?.[index];
+
+  if (!ref?.blockId) {
+    return;
+  }
+
+  try {
+    logseq.Editor.setBlockCollapsed(ref.blockId, "toggle");
+  } catch (_) { /* ignore */ }
 }
 
 function renderOverlayPath() {
@@ -1658,6 +2083,7 @@ function renderOverlayPath() {
 
   state.overlaySvg?.setAttribute("viewBox", `0 0 ${width} ${height}`);
   applyRainbowBulletStyles(blockChain);
+  renderCollapseButtons(blockChain);
 
   if (points.length > 1 && state.overlaySegments) {
     state.overlayCorePath?.setAttribute("d", "");
@@ -1702,7 +2128,11 @@ function bindHostObservers() {
       const hasRelevantMutation = mutationList.some((mutation) => {
         const targetNode = mutation.target;
 
-        if (state.overlayRoot && targetNode && typeof targetNode.nodeType === "number" && state.overlayRoot.contains(targetNode)) {
+        if (!targetNode || typeof targetNode.nodeType !== "number") {
+          return false;
+        }
+
+        if (state.overlayRoot && (state.overlayRoot === targetNode || state.overlayRoot.contains(targetNode))) {
           return false;
         }
 

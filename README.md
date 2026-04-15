@@ -12,7 +12,7 @@ Colorful bullet threading for Logseq DB graphs. Highlights the active path from 
 - **Accent colors** — pick a custom hex color, choose from preset swatches, or use the rainbow mode that gives each depth level its own color.
 - **Thread width** — 1 px, 2 px, 3 px, or 4 px.
 - **Thread shape** — Square (sharp bends) or Rounded (smooth corners).
-- **Thread end** — Top (line arrives above the bullet) or Side (line arrives beside the bullet).
+- **Thread end** — Top (line arrives above the bullet), Side (short stub beside the bullet), Original (line reaches the dot edge), or Bouble (wraps the bullet).
 - **Motion** — Still, Drift, or Pulse animation on the thread line.
 - **Settings panel** — click the toolbar icon to open a visual settings panel with live preview right inside Logseq.
 

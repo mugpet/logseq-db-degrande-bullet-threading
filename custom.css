@@ -63,7 +63,8 @@
   stroke-linejoin: miter;
 }
 
-html[data-dgbt-thread-shape="rounded"] .dgbt-overlay-path {
+html[data-dgbt-thread-shape="rounded"] .dgbt-overlay-path,
+html[data-dgbt-thread-shape="extra-rounded"] .dgbt-overlay-path {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -104,7 +105,46 @@ html[data-dgbt-motion="drift"] .dgbt-overlay-path-segment {
 }
 
 .dgbt-threading-enabled .block-control {
+  position: relative;
   z-index: 36;
+}
+
+/* Collapse layer: sits above the SVG overlay, provides clickable collapse/expand buttons */
+.dgbt-collapse-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dgbt-collapse-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  pointer-events: none;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 80ms ease;
+  z-index: 2;
+}
+
+.dgbt-collapse-btn.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dgbt-collapse-btn.is-visible:hover {
+  transform: scale(1.15);
+}
+
+.dgbt-overlay.is-hidden .dgbt-collapse-btn {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .dgbt-threading-enabled .block-children {
@@ -136,20 +176,6 @@ html[data-dgbt-motion="drift"] .dgbt-overlay-path-segment {
 .dgbt-threading-enabled .block-content-wrapper {
   position: relative;
   overflow-x: visible !important;
-}
-
-.dgbt-threading-enabled .bullet-container {
-  height: 14px !important;
-  width: 14px !important;
-  position: relative;
-  transform: translate(1px, -1px);
-  z-index: 36;
-}
-
-.dgbt-threading-enabled .ls-block div.block-control-wrap,
-.dgbt-threading-enabled .ls-block div.items-center {
-  position: relative;
-  height: 26px !important;
 }
 
 .dgbt-threading-enabled .ls-block > .items-baseline {
