@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.5";
+const FALLBACK_PLUGIN_VERSION = "0.3.6";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -1450,6 +1450,9 @@ function clearRainbowBulletStyles() {
     }
 
     bulletElement.style.removeProperty("background-color");
+    bulletElement.style.removeProperty("border-color");
+    bulletElement.style.removeProperty("color");
+    bulletElement.style.removeProperty("fill");
     bulletElement.style.removeProperty("box-shadow");
     bulletElement.style.removeProperty("--dgbt-bullet-color");
     bulletElement.removeAttribute("data-dgbt-thread-bullet");
@@ -1468,14 +1471,20 @@ function applyRainbowBulletStyles(blockChain) {
       return;
     }
 
-    const color = isRainbowAccentMode()
-      ? getRainbowSegmentColor(Math.max(0, index - 1))
-      : "var(--dgbt-thread-active-color)";
+    let color;
+    if (isRainbowAccentMode()) {
+      color = getRainbowSegmentColor(Math.max(0, index - 1));
+    } else {
+      const accentCssValue = getResolvedAccentCssValue();
+      color = `color-mix(in srgb, ${accentCssValue} 86%, white 14%)`;
+    }
     
-    // We let custom.css handle the actual application of backgroundColor
-    // by targeting [data-dgbt-thread-bullet="true"], but we supply the rainbow
-    // variable here if rainbow mode is currently active.
+    // Assign explicit styles inline to bypass recent Logseq DB CSS overrides
     bulletElement.style.setProperty("--dgbt-bullet-color", color);
+    bulletElement.style.setProperty("background-color", color, "important");
+    bulletElement.style.setProperty("border-color", color, "important");
+    bulletElement.style.setProperty("color", color, "important");
+    bulletElement.style.setProperty("fill", color, "important");
     bulletElement.setAttribute("data-dgbt-thread-bullet", "true");
     
     state.rainbowBulletElements.push(bulletElement);
