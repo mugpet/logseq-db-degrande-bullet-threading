@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.4";
+const FALLBACK_PLUGIN_VERSION = "0.3.5";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -1460,6 +1460,26 @@ function clearRainbowBulletStyles() {
 
 function applyRainbowBulletStyles(blockChain) {
   clearRainbowBulletStyles();
+
+  blockChain.forEach((blockElement, index) => {
+    const bulletElement = getBlockBulletVisualElement(blockElement);
+
+    if (!bulletElement) {
+      return;
+    }
+
+    const color = isRainbowAccentMode()
+      ? getRainbowSegmentColor(Math.max(0, index - 1))
+      : "var(--dgbt-thread-active-color)";
+    
+    // We let custom.css handle the actual application of backgroundColor
+    // by targeting [data-dgbt-thread-bullet="true"], but we supply the rainbow
+    // variable here if rainbow mode is currently active.
+    bulletElement.style.setProperty("--dgbt-bullet-color", color);
+    bulletElement.setAttribute("data-dgbt-thread-bullet", "true");
+    
+    state.rainbowBulletElements.push(bulletElement);
+  });
 }
 
 function getBlockPathChain(activeBlockElement) {
@@ -2375,3 +2395,4 @@ async function main() {
 window.__degrandeBulletThreadingMain = main;
 window[CLEANUP_REGISTRY_KEY] = cleanupPluginRuntime;
 })();
+

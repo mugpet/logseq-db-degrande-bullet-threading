@@ -31,6 +31,9 @@
 .dgbt-threading-enabled .bullet-link-wrap:hover .bullet[data-dgbt-thread-bullet="true"],
 .dgbt-threading-enabled .bullet-container:hover .bullet[data-dgbt-thread-bullet="true"] {
   background-color: var(--dgbt-bullet-color, var(--dgbt-thread-active-color)) !important;
+  border-color: var(--dgbt-bullet-color, var(--dgbt-thread-active-color)) !important;
+  color: var(--dgbt-bullet-color, var(--dgbt-thread-active-color)) !important;
+  fill: var(--dgbt-bullet-color, var(--dgbt-thread-active-color)) !important;
 }
 
 .dgbt-overlay {
