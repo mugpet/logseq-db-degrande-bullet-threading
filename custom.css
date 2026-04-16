@@ -35,7 +35,7 @@
 
 .dgbt-overlay {
   position: absolute;
-  inset: 0 auto auto 0;
+  inset: 0;
   pointer-events: none;
   z-index: 35;
   opacity: 1;
@@ -92,6 +92,19 @@ html[data-dgbt-thread-shape="square"] .dgbt-overlay-path {
   filter: none;
   stroke-linecap: butt !important;
   stroke-linejoin: miter !important;
+}
+
+.dgbt-overlay-collapse-glyph {
+  pointer-events: none;
+}
+
+.dgbt-overlay-collapse-chip {
+  fill: color-mix(in srgb, currentColor 82%, white 18%);
+  opacity: 0.96;
+}
+
+.dgbt-overlay-collapse-arrow {
+  fill: #fff;
 }
 
 html[data-dgbt-motion="drift"] .dgbt-overlay-path-core {

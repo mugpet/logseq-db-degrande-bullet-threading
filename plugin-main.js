@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.3";
+const FALLBACK_PLUGIN_VERSION = "0.3.4";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -9,6 +9,8 @@ const OVERLAY_ROOT_ID = "degrande-bullet-threading-overlay";
 const OVERLAY_ANCHOR_CLASS = "dgbt-overlay-anchor";
 const STYLE_RESOURCE = "custom.css";
 const RUNTIME_STYLE_ELEMENT_ID = "degrande-bullet-threading-runtime-style";
+const CUSTOM_COLLAPSE_OVERLAY_ENABLED = false;
+const VISUAL_COLLAPSE_GLYPHS_ENABLED = true;
 const PAGEBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredPagebars";
 const TOOLBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredToolbars";
 const COMMAND_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredCommands";
@@ -1014,6 +1016,7 @@ function closeThreadingSettings() {
 
 function syncThreadingHostState() {
   const hostDocument = getHostDocument();
+
   const accentCssValue = getResolvedAccentCssValue();
   const rainbowCssVariables = getRainbowPaletteColors()
     .map((color, index) => `      --dgbt-rainbow-${index}: ${color};`)
@@ -1084,10 +1087,12 @@ ${rainbowCssVariables}
     state.lastRuntimeStyleText = runtimeStyle;
   }
 
-  if (state.lastEnabledClassState !== state.enabled) {
-    hostDocument.documentElement?.classList.toggle(THREADING_STATE_CLASS, state.enabled);
-    hostDocument.body?.classList.toggle(THREADING_STATE_CLASS, state.enabled);
-    state.lastEnabledClassState = state.enabled;
+  const shouldApplyThreadingClass = state.enabled;
+
+  if (state.lastEnabledClassState !== shouldApplyThreadingClass) {
+    hostDocument.documentElement?.classList.toggle(THREADING_STATE_CLASS, shouldApplyThreadingClass);
+    hostDocument.body?.classList.toggle(THREADING_STATE_CLASS, shouldApplyThreadingClass);
+    state.lastEnabledClassState = shouldApplyThreadingClass;
   }
 
   hostDocument.documentElement?.setAttribute("data-dgbt-motion", state.motionLevel.toLowerCase());
@@ -1159,15 +1164,6 @@ function ensureOverlayRoot() {
   state.overlaySegments = overlayRoot.querySelector(".dgbt-overlay-segments");
   state.overlayCorePath = overlayRoot.querySelector(".dgbt-overlay-path-core");
   state.collapseLayer = overlayRoot.querySelector(".dgbt-collapse-layer");
-
-  if (state.collapseLayer && !state.collapseLayer._dgbtBound) {
-    state.collapseLayer.addEventListener("click", handleCollapseLayerClick, true);
-    state.collapseLayer.addEventListener("mousedown", handleCollapseLayerPointerBlock, true);
-    state.collapseLayer.addEventListener("pointerdown", handleCollapseLayerPointerBlock, true);
-    state.collapseLayer.addEventListener("pointerup", handleCollapseLayerPointerBlock, true);
-    state.collapseLayer.addEventListener("mouseup", handleCollapseLayerPointerBlock, true);
-    state.collapseLayer._dgbtBound = true;
-  }
 
   if (!state.overlaySegments && state.overlaySvg) {
     state.overlaySegments = hostDocument.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -1911,6 +1907,14 @@ function renderCollapseButtons(blockChain) {
     return;
   }
 
+  if (!CUSTOM_COLLAPSE_OVERLAY_ENABLED) {
+    cleanupCollapseHoverListeners();
+    layer.innerHTML = "";
+    state.collapseBlockRefs = [];
+    state.collapseButtonMap = {};
+    return;
+  }
+
   const anchor = state.overlayAnchor || getOverlayAnchorElement();
 
   if (!anchor) {
@@ -1970,6 +1974,12 @@ function renderCollapseButtons(blockChain) {
     if (!button || !button.parentNode) {
       button = hostDoc.createElement("button");
       button.className = "dgbt-collapse-btn";
+      button.type = "button";
+      button.addEventListener("click", handleCollapseLayerClick);
+      button.addEventListener("mousedown", handleCollapseLayerPointerBlock);
+      button.addEventListener("pointerdown", handleCollapseLayerPointerBlock);
+      button.addEventListener("pointerup", handleCollapseLayerPointerBlock);
+      button.addEventListener("mouseup", handleCollapseLayerPointerBlock);
       const svg = hostDoc.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 16 16");
       svg.setAttribute("width", "12");
@@ -1983,8 +1993,15 @@ function renderCollapseButtons(blockChain) {
       state.collapseButtonMap[blockId] = button;
     }
 
+    const point = getPointForBlock(blockElement);
+    const buttonSize = 14;
+    const guideX = Number.isFinite(point?.guideX) ? point.guideX : null;
+    const buttonCenterX = guideX ?? (left + (width / 2));
+    const buttonLeft = Math.max(0, Math.round(buttonCenterX - (buttonSize / 2) - 10));
+    const buttonTop = Math.max(0, Math.round((top + (height / 2)) - (buttonSize / 2)));
+
     button.dataset.collapseIndex = String(refIndex);
-    button.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px;background:${bgColor};border-radius:${borderRadius}`;
+    button.style.cssText = `left:${buttonLeft}px;top:${buttonTop}px;width:${buttonSize}px;height:${buttonSize}px;background:${bgColor};border-radius:${borderRadius}`;
     button.setAttribute("aria-label", arrowLabel);
     button.setAttribute("title", arrowLabel);
     button.classList.toggle("is-expanded", !isCollapsed);
@@ -1999,7 +2016,8 @@ function renderCollapseButtons(blockChain) {
   }
 
   state.collapseBlockRefs = refs;
-  ensureCollapseHoverListener();
+
+  cleanupCollapseHoverListeners();
 
   if (state.collapseVisibleIndex >= 0 && state.collapseVisibleIndex < refs.length) {
     const visBtn = layer.querySelector(`[data-collapse-index="${state.collapseVisibleIndex}"]`);
@@ -2034,6 +2052,55 @@ function handleCollapseLayerClick(event) {
   try {
     logseq.Editor.setBlockCollapsed(ref.blockId, "toggle");
   } catch (_) { /* ignore */ }
+}
+
+function buildCollapseGlyphMarkup(blockChain) {
+  if (!VISUAL_COLLAPSE_GLYPHS_ENABLED) {
+    return "";
+  }
+
+  const anchor = state.overlayAnchor || getOverlayAnchorElement();
+
+  if (!anchor) {
+    return "";
+  }
+
+  const anchorRect = anchor.getBoundingClientRect();
+
+  return blockChain
+    .map((blockElement, index) => {
+      if (!isBlockCollapsible(blockElement)) {
+        return "";
+      }
+
+      const point = getPointForBlock(blockElement);
+      const collapseControl = getBlockCollapseControlElement(blockElement);
+
+      if (!point || !collapseControl) {
+        return "";
+      }
+
+      const controlRect = collapseControl.getBoundingClientRect();
+
+      if (controlRect.width <= 0 || controlRect.height <= 0) {
+        return "";
+      }
+
+      const nativeArrow = collapseControl.querySelector(".rotating-arrow");
+      const nativeArrowRect = nativeArrow?.getBoundingClientRect?.();
+      const anchorRectSource = nativeArrowRect && nativeArrowRect.width > 0 && nativeArrowRect.height > 0
+        ? nativeArrowRect
+        : controlRect;
+      const glyphX = Math.round(anchorRectSource.left - anchorRect.left + anchor.scrollLeft + (anchorRectSource.width / 2));
+      const glyphY = Math.round(anchorRectSource.top - anchorRect.top + anchor.scrollTop + (anchorRectSource.height / 2));
+      const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
+      const glyphColor = isRainbowAccentMode()
+        ? getRainbowSegmentColor(Math.max(0, index - 1))
+        : "var(--dgbt-thread-active-color)";
+
+      return `<g class="dgbt-overlay-collapse-glyph" transform="translate(${glyphX} ${glyphY}) rotate(${rotation})" style="color:${glyphColor}"><circle class="dgbt-overlay-collapse-chip" cx="0" cy="0" r="7"></circle><path class="dgbt-overlay-collapse-arrow" d="M -2.5 -4 L 3.5 0 L -2.5 4 Z"></path></g>`;
+    })
+    .join("");
 }
 
 function renderOverlayPath() {
@@ -2073,17 +2140,9 @@ function renderOverlayPath() {
   }
 
   state.overlayRoot.classList.remove("is-hidden");
-  const width = Math.max(state.overlayAnchor?.scrollWidth || state.overlayAnchor?.clientWidth || 1, 1);
-  const height = Math.max(state.overlayAnchor?.scrollHeight || state.overlayAnchor?.clientHeight || 1, 1);
-
-  if (state.overlayRoot) {
-    state.overlayRoot.style.width = `${width}px`;
-    state.overlayRoot.style.height = `${height}px`;
-  }
-
-  state.overlaySvg?.setAttribute("viewBox", `0 0 ${width} ${height}`);
   applyRainbowBulletStyles(blockChain);
   renderCollapseButtons(blockChain);
+  const collapseGlyphMarkup = buildCollapseGlyphMarkup(blockChain);
 
   if (points.length > 1 && state.overlaySegments) {
     state.overlayCorePath?.setAttribute("d", "");
@@ -2102,12 +2161,12 @@ function renderOverlayPath() {
           `<path class="dgbt-overlay-path dgbt-overlay-path-segment" d="${bodyPath}" style="stroke:${segmentStroke};stroke-width:${strokeWidth}"></path>`,
         ].join("");
       })
-      .join("");
+      .join("") + collapseGlyphMarkup;
     return;
   }
 
   if (state.overlaySegments) {
-    state.overlaySegments.innerHTML = "";
+    state.overlaySegments.innerHTML = collapseGlyphMarkup;
   }
 
   state.overlayCorePath?.setAttribute("d", pathData);
@@ -2195,6 +2254,7 @@ function queueRender() {
 
   state.renderTimer = requestAnimationFrame(() => {
     state.renderTimer = null;
+
     syncThreadingHostState();
     updateToolbarUi();
     renderOverlayPath();
