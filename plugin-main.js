@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.6";
+const FALLBACK_PLUGIN_VERSION = "0.3.7";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -1992,7 +1992,7 @@ function renderCollapseButtons(blockChain) {
     const arrowLabel = isCollapsed ? "Expand" : "Collapse";
     const bgColor = isRainbowAccentMode()
       ? getRainbowSegmentColor(Math.max(0, i - 1))
-      : "var(--dgbt-thread-active-color)";
+      : `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
     const refIndex = refs.length;
 
     refs.push({ blockElement, collapseControl, blockId });
@@ -2125,7 +2125,7 @@ function buildCollapseGlyphMarkup(blockChain) {
       const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
       const glyphColor = isRainbowAccentMode()
         ? getRainbowSegmentColor(Math.max(0, index - 1))
-        : "var(--dgbt-thread-active-color)";
+        : `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
 
       return `<g class="dgbt-overlay-collapse-glyph" transform="translate(${glyphX} ${glyphY}) rotate(${rotation})" style="color:${glyphColor}"><circle class="dgbt-overlay-collapse-chip" cx="0" cy="0" r="7"></circle><path class="dgbt-overlay-collapse-arrow" d="M -2.5 -4 L 3.5 0 L -2.5 4 Z"></path></g>`;
     })
@@ -2182,7 +2182,7 @@ function renderOverlayPath() {
         const { leadPath, bodyPath } = buildSegmentGeometry(points[index], point);
         const segmentStroke = isRainbowAccentMode()
           ? getRainbowSegmentColor(index)
-          : "var(--dgbt-thread-active-color)";
+          : `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
         return [
           leadPath
             ? `<path class="dgbt-overlay-path dgbt-overlay-path-lead" d="${leadPath}" style="stroke:${segmentStroke};stroke-width:${strokeWidth}"></path>`
@@ -2200,6 +2200,8 @@ function renderOverlayPath() {
 
   state.overlayCorePath?.setAttribute("d", pathData);
   state.overlayCorePath?.style.setProperty("stroke-width", state.threadWidth);
+  const activeColorStr = `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
+  state.overlayCorePath?.style.setProperty("stroke", isRainbowAccentMode() ? "" : activeColorStr, "important");
 }
 
 function bindHostObservers() {
@@ -2404,4 +2406,6 @@ async function main() {
 window.__degrandeBulletThreadingMain = main;
 window[CLEANUP_REGISTRY_KEY] = cleanupPluginRuntime;
 })();
+
+
 
