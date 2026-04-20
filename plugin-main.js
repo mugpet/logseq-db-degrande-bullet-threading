@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.7";
+const FALLBACK_PLUGIN_VERSION = "0.3.8";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -1382,6 +1382,59 @@ function getBlockBulletVisualElement(blockElement) {
     || blockElement.querySelector(".bullet");
 }
 
+function hasCustomBulletMarker(value) {
+  const normalizedValue = String(value || "").trim();
+
+  if (!normalizedValue) {
+    return false;
+  }
+
+  if (/^(bullet|open bullet|closed bullet)$/i.test(normalizedValue)) {
+    return false;
+  }
+
+  return !/^[•◦○●]$/.test(normalizedValue);
+}
+
+const CUSTOM_BULLET_PADDING = 2;
+
+function isNumberedBulletElement(bulletElement) {
+  if (!bulletElement) {
+    return false;
+  }
+
+  if (bulletElement.closest("ol")) {
+    return true;
+  }
+
+  const bulletContainer = bulletElement.closest(".bullet-container");
+  const bulletText = String(bulletElement.textContent || "").trim();
+  const ariaLabel = String(bulletElement.getAttribute("aria-label") || "").trim();
+  const markerText = [bulletText, ariaLabel].filter(Boolean).join(" ");
+  const markerSource = [
+    bulletElement.className,
+    bulletContainer?.className,
+    bulletElement.getAttribute("data-list-type"),
+    bulletContainer?.getAttribute("data-list-type"),
+    bulletElement.getAttribute("data-bullet-type"),
+    bulletContainer?.getAttribute("data-bullet-type"),
+    markerText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/ordered|numbered/.test(markerSource)) {
+    return true;
+  }
+
+  if (/^\d+(?:[.)]|\.)?$/.test(bulletText) || /^\d+(?:[.)]|\.)?$/.test(ariaLabel)) {
+    return true;
+  }
+
+  return hasCustomBulletMarker(bulletText) || hasCustomBulletMarker(ariaLabel);
+}
+
 function getBlockGuideElement(blockElement) {
   if (!blockElement || isBlockInProperties(blockElement)) {
     return null;
@@ -1454,8 +1507,13 @@ function clearRainbowBulletStyles() {
     bulletElement.style.removeProperty("color");
     bulletElement.style.removeProperty("fill");
     bulletElement.style.removeProperty("box-shadow");
+    bulletElement.style.removeProperty("border-width");
+    bulletElement.style.removeProperty("border-style");
+    bulletElement.style.removeProperty("padding");
+    bulletElement.style.removeProperty("box-sizing");
     bulletElement.style.removeProperty("--dgbt-bullet-color");
     bulletElement.removeAttribute("data-dgbt-thread-bullet");
+    bulletElement.removeAttribute("data-dgbt-thread-bullet-numbered");
   });
 
   state.rainbowBulletElements = [];
@@ -1478,11 +1536,30 @@ function applyRainbowBulletStyles(blockChain) {
       const accentCssValue = getResolvedAccentCssValue();
       color = `color-mix(in srgb, ${accentCssValue} 86%, white 14%)`;
     }
+    const isNumberedBullet = isNumberedBulletElement(bulletElement);
+    const bulletFillColor = isNumberedBullet
+      ? `color-mix(in srgb, ${color} 20%, transparent)`
+      : color;
     
     // Assign explicit styles inline to bypass recent Logseq DB CSS overrides
     bulletElement.style.setProperty("--dgbt-bullet-color", color);
-    bulletElement.style.setProperty("background-color", color, "important");
-    bulletElement.style.setProperty("border-color", color, "important");
+    bulletElement.style.setProperty("background-color", bulletFillColor, "important");
+    bulletElement.style.setProperty("border-color", isNumberedBullet ? "transparent" : color, "important");
+    if (isNumberedBullet) {
+      bulletElement.style.setProperty("padding", `${CUSTOM_BULLET_PADDING}px`, "important");
+      bulletElement.style.setProperty("box-sizing", "content-box", "important");
+      bulletElement.style.removeProperty("border-width");
+      bulletElement.style.removeProperty("border-style");
+      bulletElement.style.setProperty("box-shadow", `0 0 0 2px ${color}`, "important");
+      bulletElement.setAttribute("data-dgbt-thread-bullet-numbered", "true");
+    } else {
+      bulletElement.style.removeProperty("border-width");
+      bulletElement.style.removeProperty("border-style");
+      bulletElement.style.removeProperty("padding");
+      bulletElement.style.removeProperty("box-sizing");
+      bulletElement.style.removeProperty("box-shadow");
+      bulletElement.removeAttribute("data-dgbt-thread-bullet-numbered");
+    }
     bulletElement.style.setProperty("color", color, "important");
     bulletElement.style.setProperty("fill", color, "important");
     bulletElement.setAttribute("data-dgbt-thread-bullet", "true");
@@ -1531,6 +1608,9 @@ function getPointForBlock(blockElement) {
   const positionRect = visualRect && visualRect.width > 0 && visualRect.height > 0
     ? visualRect
     : rect;
+  const markerPadding = isNumberedBulletElement(bulletVisualElement || bulletElement)
+    ? CUSTOM_BULLET_PADDING
+    : 0;
   let endBox = null;
 
   if (state.threadEnd === "Bouble") {
@@ -1605,6 +1685,7 @@ function getPointForBlock(blockElement) {
     x: positionRect.left - anchorRect.left + anchor.scrollLeft + (positionRect.width / 2),
     y: positionRect.top - anchorRect.top + anchor.scrollTop + (positionRect.height / 2) - 1,
     radius: Math.max(3, radiusSource / 2),
+    markerPadding,
     guideX: getGuideXForBlock(blockElement, anchor),
     endBox,
   };
@@ -1616,11 +1697,13 @@ function buildSegmentGeometry(previous, current) {
   const endpointGap = Math.max(2, threadWidthValue * 0.5);
   const startEndpointGap = Math.max(0, threadWidthValue * 0.75);
   const isRounded = state.threadShape === "Rounded" || state.threadShape === "Extra Rounded";
+  const previousMarkerPadding = Math.max(0, Number(previous.markerPadding) || 0);
+  const currentMarkerPadding = Math.max(0, Number(current.markerPadding) || 0);
   const capCompensation = isRounded
     ? threadWidthValue / 2
     : 0;
-  const previousRadius = Math.max(0, Number(previous.radius) || 0) + capCompensation + startEndpointGap;
-  const currentRadius = Math.max(0, Number(current.radius) || 0) + capCompensation + endpointGap;
+  const previousRadius = Math.max(0, Number(previous.radius) || 0) + capCompensation + startEndpointGap + previousMarkerPadding;
+  const currentRadius = Math.max(0, Number(current.radius) || 0) + capCompensation + endpointGap + currentMarkerPadding;
   const directionY = deltaY === 0 ? 0 : Math.sign(deltaY);
   const verticalX = Number.isFinite(previous.guideX) ? previous.guideX : previous.x;
   const directionFromGuide = current.x === verticalX ? 0 : Math.sign(current.x - verticalX);
@@ -1629,7 +1712,7 @@ function buildSegmentGeometry(previous, current) {
   // Start on the guide axis, below the source bullet
   const rawPreviousRadius = Math.max(0, Number(previous.radius) || 0);
   const startY = endMode === "Original"
-    ? previous.y + (directionY * (rawPreviousRadius + 1))
+    ? previous.y + (directionY * (rawPreviousRadius + previousMarkerPadding + 1))
     : previous.y + (directionY * previousRadius) + 4;
   const startPoint = { x: verticalX, y: startY };
 
@@ -1688,7 +1771,7 @@ function buildSegmentGeometry(previous, current) {
   // --- Side / Original mode: end beside the target bullet ---
   if ((endMode === "Side" || endMode === "Original") && directionFromGuide !== 0) {
     const sideStub = endMode === "Original"
-      ? Math.abs(current.x - verticalX) - Math.max(0, Number(current.radius) || 0) - 2
+      ? Math.abs(current.x - verticalX) - Math.max(0, Number(current.radius) || 0) - currentMarkerPadding - 2
       : 7;
     const endSide = {
       x: verticalX + (directionFromGuide * Math.max(1, sideStub)),
@@ -1785,7 +1868,7 @@ function buildSegmentGeometry(previous, current) {
   const straightEnd = endMode === "Side"
     ? { x: current.x, y: current.y - (directionY * currentRadius) }
     : endMode === "Original"
-    ? { x: current.x, y: current.y - (directionY * (Math.max(0, Number(current.radius) || 0) + 2)) }
+    ? { x: current.x, y: current.y - (directionY * (Math.max(0, Number(current.radius) || 0) + currentMarkerPadding + 2)) }
     : endPoint;
   return {
     leadPath: "",
