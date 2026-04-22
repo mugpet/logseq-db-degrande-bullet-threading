@@ -1,6 +1,6 @@
 {
   "name": "degrande-bullet-threading",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Degrande Bullet Threading is a Logseq DB-first bullet threading scaffold with expressive motion, color controls, and a publish-ready setup.",
   "author": "mugpet",
   "license": "MIT",

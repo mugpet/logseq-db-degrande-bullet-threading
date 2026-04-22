@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.8";
+const FALLBACK_PLUGIN_VERSION = "0.3.9";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -10,7 +10,7 @@ const OVERLAY_ANCHOR_CLASS = "dgbt-overlay-anchor";
 const STYLE_RESOURCE = "custom.css";
 const RUNTIME_STYLE_ELEMENT_ID = "degrande-bullet-threading-runtime-style";
 const CUSTOM_COLLAPSE_OVERLAY_ENABLED = false;
-const VISUAL_COLLAPSE_GLYPHS_ENABLED = true;
+const VISUAL_COLLAPSE_GLYPHS_ENABLED = false;
 const PAGEBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredPagebars";
 const TOOLBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredToolbars";
 const COMMAND_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredCommands";
