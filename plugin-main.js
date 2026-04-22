@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.11";
+const FALLBACK_PLUGIN_VERSION = "0.3.12";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -1327,7 +1327,7 @@ function getNativeCollapseState(blockElement) {
     };
   }
 
-  if (hasExpandedChildren) {
+  if (hasExpandedChildren || hasNotCollapsedArrow) {
     return {
       isCollapsible: true,
       isCollapsed: false,
