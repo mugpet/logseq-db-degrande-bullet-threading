@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.9";
+const FALLBACK_PLUGIN_VERSION = "0.3.10";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -10,7 +10,7 @@ const OVERLAY_ANCHOR_CLASS = "dgbt-overlay-anchor";
 const STYLE_RESOURCE = "custom.css";
 const RUNTIME_STYLE_ELEMENT_ID = "degrande-bullet-threading-runtime-style";
 const CUSTOM_COLLAPSE_OVERLAY_ENABLED = false;
-const VISUAL_COLLAPSE_GLYPHS_ENABLED = false;
+const VISUAL_COLLAPSE_GLYPHS_ENABLED = true;
 const PAGEBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredPagebars";
 const TOOLBAR_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredToolbars";
 const COMMAND_REGISTRY_KEY = "__degrandeBulletThreadingRegisteredCommands";
@@ -2178,17 +2178,44 @@ function buildCollapseGlyphMarkup(blockChain) {
   }
 
   const anchorRect = anchor.getBoundingClientRect();
+  const chainIndexById = new Map();
+  blockChain.forEach((blockElement, index) => {
+    const id = blockElement?.getAttribute?.("blockid") || blockElement?.id;
+    if (id) {
+      chainIndexById.set(id, index);
+    }
+  });
 
-  return blockChain
-    .map((blockElement, index) => {
+  const candidateBlocks = [];
+  const seenBlocks = new Set();
+  blockChain.forEach((blockElement) => {
+    if (blockElement && !seenBlocks.has(blockElement)) {
+      seenBlocks.add(blockElement);
+      candidateBlocks.push(blockElement);
+    }
+  });
+  anchor.querySelectorAll(".ls-block").forEach((blockElement) => {
+    if (!seenBlocks.has(blockElement)) {
+      seenBlocks.add(blockElement);
+      candidateBlocks.push(blockElement);
+    }
+  });
+
+  return candidateBlocks
+    .map((blockElement) => {
       if (!isBlockCollapsible(blockElement)) {
         return "";
       }
 
-      const point = getPointForBlock(blockElement);
       const collapseControl = getBlockCollapseControlElement(blockElement);
 
-      if (!point || !collapseControl) {
+      if (!collapseControl) {
+        return "";
+      }
+
+      const nativeArrow = collapseControl.querySelector(".rotating-arrow");
+
+      if (!nativeArrow) {
         return "";
       }
 
@@ -2198,16 +2225,17 @@ function buildCollapseGlyphMarkup(blockChain) {
         return "";
       }
 
-      const nativeArrow = collapseControl.querySelector(".rotating-arrow");
-      const nativeArrowRect = nativeArrow?.getBoundingClientRect?.();
+      const nativeArrowRect = nativeArrow.getBoundingClientRect?.();
       const anchorRectSource = nativeArrowRect && nativeArrowRect.width > 0 && nativeArrowRect.height > 0
         ? nativeArrowRect
         : controlRect;
       const glyphX = Math.round(anchorRectSource.left - anchorRect.left + anchor.scrollLeft + (anchorRectSource.width / 2));
       const glyphY = Math.round(anchorRectSource.top - anchorRect.top + anchor.scrollTop + (anchorRectSource.height / 2));
       const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
-      const glyphColor = isRainbowAccentMode()
-        ? getRainbowSegmentColor(Math.max(0, index - 1))
+      const id = blockElement?.getAttribute?.("blockid") || blockElement?.id;
+      const chainIndex = id ? chainIndexById.get(id) : undefined;
+      const glyphColor = isRainbowAccentMode() && typeof chainIndex === "number"
+        ? getRainbowSegmentColor(Math.max(0, chainIndex - 1))
         : `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
 
       return `<g class="dgbt-overlay-collapse-glyph" transform="translate(${glyphX} ${glyphY}) rotate(${rotation})" style="color:${glyphColor}"><circle class="dgbt-overlay-collapse-chip" cx="0" cy="0" r="7"></circle><path class="dgbt-overlay-collapse-arrow" d="M -2.5 -4 L 3.5 0 L -2.5 4 Z"></path></g>`;
