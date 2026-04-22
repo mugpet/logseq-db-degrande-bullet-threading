@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.13";
+const FALLBACK_PLUGIN_VERSION = "0.3.14";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -2197,19 +2197,23 @@ function buildCollapseGlyphMarkup(blockChain) {
         return "";
       }
 
-      const nativeArrowRect = nativeArrow.getBoundingClientRect?.();
-
-      if (!nativeArrowRect || nativeArrowRect.width <= 0 || nativeArrowRect.height <= 0) {
-        return "";
-      }
-
       const controlRect = collapseControl.getBoundingClientRect();
 
       if (controlRect.width <= 0 || controlRect.height <= 0) {
         return "";
       }
 
-      const anchorRectSource = nativeArrowRect;
+      const nativeArrowRect = nativeArrow.getBoundingClientRect?.();
+      const arrowVisible = Boolean(nativeArrowRect && nativeArrowRect.width > 0 && nativeArrowRect.height > 0);
+      const childContainer = getOwnBlockChildrenContainer(blockElement);
+      const hasRenderedChildren = blockElement.getAttribute("haschild") === "true"
+        || Boolean(childContainer && childContainer.childElementCount > 0);
+
+      if (!arrowVisible && !hasRenderedChildren) {
+        return "";
+      }
+
+      const anchorRectSource = arrowVisible ? nativeArrowRect : controlRect;
       const glyphX = Math.round(anchorRectSource.left - anchorRect.left + anchor.scrollLeft + (anchorRectSource.width / 2));
       const glyphY = Math.round(anchorRectSource.top - anchorRect.top + anchor.scrollTop + (anchorRectSource.height / 2));
       const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
