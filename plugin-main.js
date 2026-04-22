@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.12";
+const FALLBACK_PLUGIN_VERSION = "0.3.13";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -2197,16 +2197,19 @@ function buildCollapseGlyphMarkup(blockChain) {
         return "";
       }
 
+      const nativeArrowRect = nativeArrow.getBoundingClientRect?.();
+
+      if (!nativeArrowRect || nativeArrowRect.width <= 0 || nativeArrowRect.height <= 0) {
+        return "";
+      }
+
       const controlRect = collapseControl.getBoundingClientRect();
 
       if (controlRect.width <= 0 || controlRect.height <= 0) {
         return "";
       }
 
-      const nativeArrowRect = nativeArrow.getBoundingClientRect?.();
-      const anchorRectSource = nativeArrowRect && nativeArrowRect.width > 0 && nativeArrowRect.height > 0
-        ? nativeArrowRect
-        : controlRect;
+      const anchorRectSource = nativeArrowRect;
       const glyphX = Math.round(anchorRectSource.left - anchorRect.left + anchor.scrollLeft + (anchorRectSource.width / 2));
       const glyphY = Math.round(anchorRectSource.top - anchorRect.top + anchor.scrollTop + (anchorRectSource.height / 2));
       const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
