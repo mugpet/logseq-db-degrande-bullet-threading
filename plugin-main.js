@@ -1,5 +1,5 @@
 (() => {
-const FALLBACK_PLUGIN_VERSION = "0.3.10";
+const FALLBACK_PLUGIN_VERSION = "0.3.11";
 const PAGEBAR_ITEM_KEY = "degrande-bullet-threading-pagebar";
 const TOOLBAR_ITEM_KEY = "degrande-bullet-threading-toolbar";
 const TOOLBAR_TOGGLE_ID = "degrande-bullet-threading-toolbar-toggle";
@@ -2178,31 +2178,9 @@ function buildCollapseGlyphMarkup(blockChain) {
   }
 
   const anchorRect = anchor.getBoundingClientRect();
-  const chainIndexById = new Map();
-  blockChain.forEach((blockElement, index) => {
-    const id = blockElement?.getAttribute?.("blockid") || blockElement?.id;
-    if (id) {
-      chainIndexById.set(id, index);
-    }
-  });
 
-  const candidateBlocks = [];
-  const seenBlocks = new Set();
-  blockChain.forEach((blockElement) => {
-    if (blockElement && !seenBlocks.has(blockElement)) {
-      seenBlocks.add(blockElement);
-      candidateBlocks.push(blockElement);
-    }
-  });
-  anchor.querySelectorAll(".ls-block").forEach((blockElement) => {
-    if (!seenBlocks.has(blockElement)) {
-      seenBlocks.add(blockElement);
-      candidateBlocks.push(blockElement);
-    }
-  });
-
-  return candidateBlocks
-    .map((blockElement) => {
+  return blockChain
+    .map((blockElement, index) => {
       if (!isBlockCollapsible(blockElement)) {
         return "";
       }
@@ -2232,10 +2210,8 @@ function buildCollapseGlyphMarkup(blockChain) {
       const glyphX = Math.round(anchorRectSource.left - anchorRect.left + anchor.scrollLeft + (anchorRectSource.width / 2));
       const glyphY = Math.round(anchorRectSource.top - anchorRect.top + anchor.scrollTop + (anchorRectSource.height / 2));
       const rotation = isBlockCurrentlyCollapsed(blockElement) ? 0 : 90;
-      const id = blockElement?.getAttribute?.("blockid") || blockElement?.id;
-      const chainIndex = id ? chainIndexById.get(id) : undefined;
-      const glyphColor = isRainbowAccentMode() && typeof chainIndex === "number"
-        ? getRainbowSegmentColor(Math.max(0, chainIndex - 1))
+      const glyphColor = isRainbowAccentMode()
+        ? getRainbowSegmentColor(Math.max(0, index - 1))
         : `color-mix(in srgb, ${getResolvedAccentCssValue()} 86%, white 14%)`;
 
       return `<g class="dgbt-overlay-collapse-glyph" transform="translate(${glyphX} ${glyphY}) rotate(${rotation})" style="color:${glyphColor}"><circle class="dgbt-overlay-collapse-chip" cx="0" cy="0" r="7"></circle><path class="dgbt-overlay-collapse-arrow" d="M -2.5 -4 L 3.5 0 L -2.5 4 Z"></path></g>`;
